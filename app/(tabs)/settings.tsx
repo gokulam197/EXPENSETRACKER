@@ -1,125 +1,166 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
+import { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView, useColorScheme } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
-WebBrowser.maybeCompleteAuthSession(); 
+// FIREBASE IMPORTS
+import { collection, addDoc } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
+import { db, auth } from '../../database/firebaseConfig';
 
 export default function SettingsScreen() {
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [userInfo, setUserInfo] = useState<any>(null);
+  const router = useRouter();
+  const systemTheme = useColorScheme();
+  const isDarkMode = systemTheme === 'dark';
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    // Nerthe undakkiya pazhaya Web Client ID ivide iduka
-    webClientId: '316217110559-crv25le02n132f4j2d1sk3gfm3443vdc.apps.googleusercontent.com', 
-    
-    // IPPOL Kittiye PUTHIA Android Client ID ivide iduka
-    androidClientId: '316217110559-llhlu09fihfb7hdubi29n4tcevm3lbtp.apps.googleusercontent.com', 
-    
-    scopes: ['https://www.googleapis.com/auth/drive.file', 'profile', 'email'],
-  });
+  // DYNAMIC COLORS (Light & Dark mode-nu vendi)
+  const themeContainer = isDarkMode ? '#121212' : '#f4f6f8';
+  const themeCard = isDarkMode ? '#1e1e1e' : '#ffffff';
+  const themeText = isDarkMode ? '#ffffff' : '#333333';
+  const themeSubText = isDarkMode ? '#aaaaaa' : '#666666';
+  const themeBorder = isDarkMode ? '#333333' : '#eeeeee';
+  const inputBg = isDarkMode ? '#2c2c2c' : '#fafafa';
 
-  // Login kazhiyumbol token edukkan
-  useEffect(() => {
-    if (response?.type === 'success' && response.authentication) {
-      const token = response.authentication.accessToken;
-      setAccessToken(token);
-      getUserInfo(token);
-    } else if (response?.type === 'error') {
-      Alert.alert('Login Failed', 'Google login pattiyilla');
+  const [feedback, setFeedback] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const submitFeedback = async () => {
+    if (!feedback.trim()) {
+      Alert.alert('Error', 'Feedback enthenkilum type cheyyuka!');
+      return;
     }
-  }, [response]);
 
-  // User-nte peru, photo edukkan
-  const getUserInfo = async (token: string) => {
+    setIsSubmitting(true);
     try {
-      const res = await fetch('https://www.googleapis.com/userinfo/v2/me', {
-        headers: { Authorization: `Bearer ${token}` },
+      await addDoc(collection(db, 'feedbacks'), {
+        message: feedback,
+        timestamp: new Date().getTime(),
+        date: new Date().toLocaleDateString('en-US'),
+        app_version: "1.0.0 (Beta)",
+        user: auth.currentUser?.email // Ee feedback aaranu ayachathu ennu ariyan email koodi add cheythu
       });
-      const user = await res.json();
-      setUserInfo(user);
+      
+      Alert.alert('Thank You!', 'Ningalude feedback success aayi send cheythu. App use cheythathinu nanni! 😊');
+      setFeedback(''); 
     } catch (error) {
-      console.error("User Info Error:", error);
+      console.error("Feedback Error:", error);
+      Alert.alert('Error', 'Feedback send cheyyan pattiyilla. Internet connection check cheyyuka.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+  // LOGOUT FUNCTION
   const handleLogout = () => {
-    setAccessToken(null);
-    setUserInfo(null);
+    Alert.alert("Logout", "App-il ninnu purathu pokano?", [
+      { text: "Cancel", style: "cancel" },
+      { 
+        text: "Logout", 
+        style: "destructive", 
+        onPress: async () => {
+          try {
+            await signOut(auth);
+            router.replace('/login'); // Logout aayal nere login page-lekku pokum
+          } catch (error) {
+            console.error("Logout Error:", error);
+            Alert.alert("Error", "Logout cheyyan pattiyilla.");
+          }
+        } 
+      }
+    ]);
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Settings & Backup</Text>
+    <ScrollView style={[styles.container, { backgroundColor: themeContainer }]}>
+      <View style={[styles.header, { backgroundColor: themeCard, borderBottomColor: themeBorder }]}>
+        <Text style={[styles.headerTitle, { color: themeText }]}>Settings & Info</Text>
       </View>
 
       <View style={styles.content}>
-        {!userInfo ? (
-          <View style={styles.loginCard}>
-            <Text style={styles.descText}>Securely backup your expenses to your Google Drive.</Text>
-            <TouchableOpacity 
-              style={styles.googleBtn} 
-              disabled={!request} 
-              onPress={() => promptAsync()}
-            >
-              <FontAwesome name="google" size={20} color="#fff" style={{ marginRight: 10 }} />
-              <Text style={styles.googleBtnText}>Sign in with Google</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.profileCard}>
-            <Image source={{ uri: userInfo.picture }} style={styles.profileImage} />
-            <Text style={styles.userName}>{userInfo.name}</Text>
-            <Text style={styles.userEmail}>{userInfo.email}</Text>
-            
-            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-              <Text style={styles.logoutText}>Logout</Text>
-            </TouchableOpacity>
+        {/* App Info Card */}
+        <View style={[styles.infoCard, { backgroundColor: themeCard }]}>
+          <FontAwesome name="rocket" size={40} color="#4154f1" style={{ marginBottom: 15 }} />
+          <Text style={[styles.infoTitle, { color: themeText }]}>Expense Tracker (Beta)</Text>
+          <Text style={[styles.infoDesc, { color: themeSubText }]}>
+            Ithu Cloud Sync ulla oru secure app aanu. Ningalude data real-time aayi safe aayi save aavunnundu.
+          </Text>
+          {/* Login cheytha email kanikkan */}
+          <Text style={[styles.userEmail, { color: themeSubText }]}>
+            Logged in as: {auth.currentUser?.email}
+          </Text>
+        </View>
 
-            <View style={styles.backupSection}>
-              <Text style={styles.sectionTitle}>Data Backup</Text>
-              
-              <TouchableOpacity style={[styles.actionBtn, styles.backupBtn]}>
-                <FontAwesome name="cloud-upload" size={20} color="#fff" style={{ marginRight: 10 }} />
-                <Text style={styles.actionText}>Backup to Drive</Text>
-              </TouchableOpacity>
+        {/* Theme Info Card */}
+        <View style={[styles.infoCard, { backgroundColor: themeCard }]}>
+          <FontAwesome name={isDarkMode ? "moon-o" : "sun-o"} size={35} color="#4154f1" style={{ marginBottom: 10 }} />
+          <Text style={[styles.infoTitle, { color: themeText }]}>Theme Settings</Text>
+          <Text style={[styles.infoDesc, { color: themeSubText }]}>
+            App ippol ningalude phone-ile system theme follow cheyyunnundu. Phone dark mode aakkumbol app-um auto aayi dark mode aakum.
+          </Text>
+        </View>
 
-              <TouchableOpacity style={[styles.actionBtn, styles.restoreBtn]}>
-                <FontAwesome name="cloud-download" size={20} color="#fff" style={{ marginRight: 10 }} />
-                <Text style={styles.actionText}>Restore from Drive</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+        {/* Feedback Section */}
+        <View style={[styles.feedbackSection, { backgroundColor: themeCard }]}>
+          <Text style={[styles.sectionTitle, { color: themeText }]}>Send Feedback</Text>
+          <Text style={[styles.feedbackDesc, { color: themeSubText }]}>
+            App use cheythittu enthu thonnunnu? Puthiyathayi enthenkilum features venamo? Thazhe type cheythu ariyikkuka!
+          </Text>
+          
+          <TextInput
+            style={[styles.feedbackInput, { color: themeText, borderColor: themeBorder, backgroundColor: inputBg }]}
+            placeholder="Type your suggestions, bugs, or feedback here..."
+            placeholderTextColor={themeSubText}
+            multiline={true}
+            numberOfLines={5}
+            textAlignVertical="top"
+            value={feedback}
+            onChangeText={setFeedback}
+          />
+
+          <TouchableOpacity 
+            style={[styles.submitBtn, isSubmitting && styles.disabledBtn]} 
+            onPress={submitFeedback}
+            disabled={isSubmitting}
+          >
+            <FontAwesome name="paper-plane" size={18} color="#fff" style={{ marginRight: 10 }} />
+            <Text style={styles.submitBtnText}>
+              {isSubmitting ? "Sending..." : "Submit Feedback"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* LOGOUT BUTTON */}
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+          <FontAwesome name="sign-out" size={20} color="#fff" style={{ marginRight: 10 }} />
+          <Text style={styles.logoutBtnText}>Logout</Text>
+        </TouchableOpacity>
+
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f4f6f8' },
-  header: { padding: 20, paddingTop: 50, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#eee' },
-  headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#333' },
-  content: { padding: 20 },
+  container: { flex: 1 },
+  header: { padding: 20, paddingTop: 50, borderBottomWidth: 1 },
+  headerTitle: { fontSize: 22, fontWeight: 'bold' },
+  content: { padding: 20, paddingBottom: 40 },
   
-  loginCard: { backgroundColor: '#fff', padding: 30, borderRadius: 15, alignItems: 'center', elevation: 3 },
-  descText: { textAlign: 'center', color: '#666', marginBottom: 20, fontSize: 16 },
-  googleBtn: { flexDirection: 'row', backgroundColor: '#db4437', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, alignItems: 'center' },
-  googleBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  infoCard: { padding: 25, borderRadius: 15, alignItems: 'center', elevation: 2, marginBottom: 20 },
+  infoTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
+  infoDesc: { textAlign: 'center', fontSize: 14, lineHeight: 22 },
+  userEmail: { marginTop: 15, fontSize: 13, fontWeight: 'bold', fontStyle: 'italic' },
 
-  profileCard: { backgroundColor: '#fff', padding: 20, borderRadius: 15, alignItems: 'center', elevation: 3 },
-  profileImage: { width: 80, height: 80, borderRadius: 40, marginBottom: 10 },
-  userName: { fontSize: 20, fontWeight: 'bold', color: '#333' },
-  userEmail: { fontSize: 14, color: '#666', marginBottom: 15 },
-  logoutBtn: { padding: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 5, paddingHorizontal: 15 },
-  logoutText: { color: '#666' },
+  feedbackSection: { width: '100%', padding: 20, borderRadius: 15, elevation: 2, marginBottom: 20 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
+  feedbackDesc: { fontSize: 14, marginBottom: 15, lineHeight: 20 },
+  
+  feedbackInput: { borderWidth: 1, padding: 15, borderRadius: 10, fontSize: 16, height: 120, marginBottom: 15 },
+  
+  submitBtn: { flexDirection: 'row', backgroundColor: '#4154f1', padding: 15, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  disabledBtn: { backgroundColor: '#a0aaff' },
+  submitBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 
-  backupSection: { marginTop: 30, width: '100%', borderTopWidth: 1, borderColor: '#eee', paddingTop: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 15 },
-  actionBtn: { flexDirection: 'row', padding: 15, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  backupBtn: { backgroundColor: '#4caf50' },
-  restoreBtn: { backgroundColor: '#2196f3' },
-  actionText: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
+  logoutBtn: { flexDirection: 'row', backgroundColor: '#f44336', padding: 15, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
+  logoutBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
 });

@@ -1,65 +1,82 @@
 import { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, TextInput, Alert, Dimensions } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import { PieChart } from 'react-native-chart-kit';
-import { db } from '../../database/db';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, TextInput, Alert, Dimensions, useColorScheme } from 'react-native';
+
+// FIREBASE IMPORTS 
+import { collection, getDocs, addDoc } from 'firebase/firestore';
+import { db } from '../../database/firebaseConfig';
 
 const screenWidth = Dimensions.get('window').width;
 
 export default function HomeScreen() {
-  const [books, setBooks] = useState([]);
+  const systemTheme = useColorScheme();
+  const isDarkMode = systemTheme === 'dark';
+
+  // DYNAMIC COLORS (Light & Dark mode-nu vendi)
+  const themeContainer = isDarkMode ? '#121212' : '#f4f6f8';
+  const themeCard = isDarkMode ? '#1e1e1e' : '#fff';
+  const themeText = isDarkMode ? '#ffffff' : '#333333';
+  const themeSubText = isDarkMode ? '#aaaaaa' : '#666666';
+  const themeBorder = isDarkMode ? '#333333' : '#eeeeee';
+  const chartTextColor = isDarkMode ? 255 : 0;
+
+  const [books, setBooks] = useState<any[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [newBookName, setNewBookName] = useState('');
   
-  const [chartData, setChartData] = useState([]);
+  const [chartData, setChartData] = useState<any[]>([]);
   const [topCategory, setTopCategory] = useState({ name: 'None', amount: 0 });
   const [totalMonthlyExpense, setTotalMonthlyExpense] = useState(0);
 
   const router = useRouter();
 
+  // isDarkMode maarumbol chart colors update aavan vendi array-il add cheythu
   useFocusEffect(
     useCallback(() => {
-      fetchBooks();
-      fetchMonthlyStats();
-    }, [])
+      fetchDashboardData();
+    }, [isDarkMode]) 
   );
 
-  const fetchBooks = () => {
+  const fetchDashboardData = async () => {
     try {
-      const query = `
-        SELECT books.id, books.name, books.created_at, 
-        COALESCE(SUM(CASE WHEN transactions.type = 'Income' THEN transactions.amount ELSE -transactions.amount END), 0) as balance 
-        FROM books 
-        LEFT JOIN transactions ON books.id = transactions.book_id 
-        GROUP BY books.id 
-        ORDER BY books.id DESC
-      `;
-      const allBooks = db?.getAllSync(query) || [];
-      setBooks(allBooks);
-    } catch (error) {
-      console.error("Fetch Books Error:", error);
-    }
-  };
+      const booksSnapshot = await getDocs(collection(db, 'books'));
+      const booksList = booksSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as any[];
 
-  const fetchMonthlyStats = () => {
-    try {
-      // Date format matching update: Comma handling and proper month/year search
+      const txSnapshot = await getDocs(collection(db, 'transactions'));
+      const txList = txSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as any[];
+
+      const booksWithBalance = booksList.map(book => {
+        const bookTxs = txList.filter(tx => tx.book_id === book.id);
+        const balance = bookTxs.reduce((acc, tx) => {
+          return tx.type === 'Income' ? acc + tx.amount : acc - tx.amount;
+        }, 0);
+        return { ...book, balance };
+      });
+
+      setBooks(booksWithBalance.reverse());
+
       const date = new Date();
-      const currentMonth = date.toLocaleDateString('en-US', { month: 'short' }); // eg: "Apr"
-      const currentYear = date.getFullYear().toString(); // eg: "2026"
+      const currentMonth = date.toLocaleDateString('en-US', { month: 'short' });
+      const currentYear = date.getFullYear().toString();
       
-      // Monthly transactions fetch logic updated
-      const txData = db?.getAllSync(`
-        SELECT * FROM transactions 
-        WHERE type = 'Expense' 
-        AND date LIKE ? AND date LIKE ?
-      `, [`%${currentMonth}%`, `%${currentYear}%`]) || [];
+      const monthlyTx = txList.filter(tx => 
+        tx.type === 'Expense' && 
+        tx.date.includes(currentMonth) && 
+        tx.date.includes(currentYear)
+      );
       
       let totalExp = 0;
       let categoryMap: { [key: string]: number } = {};
 
-      txData.forEach(tx => {
+      monthlyTx.forEach(tx => {
         totalExp += tx.amount;
         const cat = tx.category || 'Other';
         categoryMap[cat] = (categoryMap[cat] || 0) + tx.amount;
@@ -78,12 +95,11 @@ export default function HomeScreen() {
           topCatAmt = value;
           topCatName = key;
         }
-        
         pieData.push({
           name: key,
           amount: value,
           color: colors[colorIndex % colors.length],
-          legendFontColor: '#7F7F7F',
+          legendFontColor: isDarkMode ? '#aaaaaa' : '#7F7F7F', // Dynamic legend color
           legendFontSize: 12
         });
         colorIndex++;
@@ -93,11 +109,11 @@ export default function HomeScreen() {
       setChartData(pieData);
 
     } catch (error) {
-      console.error("Fetch Stats Error:", error);
+      console.error("Firebase fetch error:", error);
     }
   };
 
-  const handleAddBook = () => {
+  const handleAddBook = async () => {
     if (!newBookName.trim()) {
       Alert.alert('Error', 'Book name kodukkuka!');
       return;
@@ -105,27 +121,33 @@ export default function HomeScreen() {
     try {
       const dateOpts: any = { month: 'short', day: '2-digit', year: 'numeric' };
       const formattedDate = new Date().toLocaleDateString('en-US', dateOpts);
-      db?.runSync('INSERT INTO books (name, created_at) VALUES (?, ?)', newBookName, formattedDate);
+      
+      await addDoc(collection(db, 'books'), {
+        name: newBookName,
+        created_at: formattedDate
+      });
+      
       setNewBookName('');
       setModalVisible(false);
-      fetchBooks();
+      fetchDashboardData(); 
     } catch (error) {
       console.error("Insert Error:", error);
+      Alert.alert('Error', 'Book add cheyyan pattiyilla!');
     }
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>Dashboard</Text>
+    <View style={[styles.container, { backgroundColor: themeContainer }]}>
+      <View style={[styles.headerContainer, { backgroundColor: themeCard, borderBottomColor: themeBorder }]}>
+        <Text style={[styles.headerTitle, { color: themeText }]}>Dashboard</Text>
       </View>
 
       <FlatList
-        ListHeaderComponent={
+        ListHeaderComponent={(
           <View>
-            <View style={styles.statsCard}>
-              <View style={styles.statsHeader}>
-                <Text style={styles.statsTitle}>This Month's Expense</Text>
+            <View style={[styles.statsCard, { backgroundColor: themeCard }]}>
+              <View style={[styles.statsHeader, { borderBottomColor: themeBorder }]}>
+                <Text style={[styles.statsTitle, { color: themeSubText }]}>This Month's Expense</Text>
                 <Text style={styles.totalExpenseText}>₹{totalMonthlyExpense.toFixed(2)}</Text>
               </View>
               
@@ -136,7 +158,7 @@ export default function HomeScreen() {
                     width={screenWidth - 60}
                     height={180}
                     chartConfig={{
-                      color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                      color: (opacity = 1) => `rgba(${chartTextColor}, ${chartTextColor}, ${chartTextColor}, ${opacity})`,
                     }}
                     accessor={"amount"}
                     backgroundColor={"transparent"}
@@ -144,32 +166,32 @@ export default function HomeScreen() {
                     center={[10, 0]}
                     absolute
                   />
-                  <View style={styles.topCatContainer}>
+                  <View style={[styles.topCatContainer, { backgroundColor: isDarkMode ? '#3e2723' : '#fff3e0' }]}>
                     <Text style={styles.topCatLabel}>Highest Expense:</Text>
                     <Text style={styles.topCatValue}>{topCategory.name} (₹{topCategory.amount.toFixed(2)})</Text>
                   </View>
                 </>
               ) : (
                 <View style={styles.noDataContainer}>
-                  <FontAwesome name="pie-chart" size={40} color="#ddd" />
-                  <Text style={styles.noDataText}>No expenses recorded this month.</Text>
+                  <FontAwesome name="pie-chart" size={40} color={themeBorder} />
+                  <Text style={[styles.noDataText, { color: themeSubText }]}>No expenses recorded this month.</Text>
                 </View>
               )}
             </View>
-            <Text style={styles.sectionTitle}>Your Books</Text>
+            <Text style={[styles.sectionTitle, { color: themeText }]}>Your Books</Text>
           </View>
-        }
+        )}
         data={books}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.bookCard} onPress={() => router.push(`/book/${item.id}`)}>
+          <TouchableOpacity style={[styles.bookCard, { backgroundColor: themeCard }]} onPress={() => router.push(`/book/${item.id}`)}>
             <View style={styles.bookLeft}>
               <View style={styles.iconContainer}>
                 <FontAwesome name="book" size={20} color="#fff" />
               </View>
               <View>
-                <Text style={styles.bookName}>{item.name}</Text>
-                <Text style={styles.bookDate}>Updated on {item.created_at}</Text>
+                <Text style={[styles.bookName, { color: themeText }]}>{item.name}</Text>
+                <Text style={[styles.bookDate, { color: themeSubText }]}>Updated on {item.created_at}</Text>
               </View>
             </View>
             <View style={styles.bookRight}>
@@ -188,12 +210,23 @@ export default function HomeScreen() {
 
       <Modal visible={modalVisible} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Create New Book</Text>
-            <TextInput style={styles.input} placeholder="Book Name" value={newBookName} onChangeText={setNewBookName} autoFocus={true} />
+          <View style={[styles.modalContent, { backgroundColor: themeCard }]}>
+            <Text style={[styles.modalTitle, { color: themeText }]}>Create New Book</Text>
+            <TextInput 
+              style={[styles.input, { color: themeText, borderColor: themeBorder, backgroundColor: themeContainer }]} 
+              placeholder="Book Name" 
+              placeholderTextColor={themeSubText}
+              value={newBookName} 
+              onChangeText={setNewBookName} 
+              autoFocus={true} 
+            />
             <View style={styles.modalButtons}>
-              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.cancelBtn}><Text style={styles.cancelBtnText}>Cancel</Text></TouchableOpacity>
-              <TouchableOpacity onPress={handleAddBook} style={styles.saveBtn}><Text style={styles.saveBtnText}>Save</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.cancelBtn}>
+                <Text style={[styles.cancelBtnText, { color: themeSubText }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleAddBook} style={styles.saveBtn}>
+                <Text style={styles.saveBtnText}>Save</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -203,36 +236,36 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f4f6f8' },
-  headerContainer: { padding: 20, paddingTop: 50, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#eee' },
-  headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#333' },
-  statsCard: { backgroundColor: '#fff', margin: 15, padding: 20, borderRadius: 15, elevation: 3, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5 },
-  statsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, borderBottomWidth: 1, borderColor: '#eee', paddingBottom: 10 },
-  statsTitle: { fontSize: 16, color: '#666', fontWeight: 'bold' },
+  container: { flex: 1 },
+  headerContainer: { padding: 20, paddingTop: 50, borderBottomWidth: 1 },
+  headerTitle: { fontSize: 22, fontWeight: 'bold' },
+  statsCard: { margin: 15, padding: 20, borderRadius: 15, elevation: 3, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5 },
+  statsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, borderBottomWidth: 1, paddingBottom: 10 },
+  statsTitle: { fontSize: 16, fontWeight: 'bold' },
   totalExpenseText: { fontSize: 22, fontWeight: 'bold', color: '#f44336' },
-  topCatContainer: { marginTop: 10, padding: 12, backgroundColor: '#fff3e0', borderRadius: 8, flexDirection: 'row', justifyContent: 'space-between' },
-  topCatLabel: { color: '#e65100', fontWeight: 'bold' },
-  topCatValue: { color: '#e65100', fontWeight: 'bold' },
+  topCatContainer: { marginTop: 10, padding: 12, borderRadius: 8, flexDirection: 'row', justifyContent: 'space-between' },
+  topCatLabel: { color: '#ff9800', fontWeight: 'bold' },
+  topCatValue: { color: '#ff9800', fontWeight: 'bold' },
   noDataContainer: { alignItems: 'center', padding: 20 },
-  noDataText: { textAlign: 'center', color: '#888', marginTop: 10 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginLeft: 15, marginBottom: 10 },
-  bookCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: '#fff', marginHorizontal: 15, marginBottom: 10, borderRadius: 10, elevation: 1 },
+  noDataText: { textAlign: 'center', marginTop: 10 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginLeft: 15, marginBottom: 10 },
+  bookCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, marginHorizontal: 15, marginBottom: 10, borderRadius: 10, elevation: 1 },
   bookLeft: { flexDirection: 'row', alignItems: 'center' },
   iconContainer: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#4154f1', justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-  bookName: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-  bookDate: { fontSize: 12, color: '#888', marginTop: 2 },
+  bookName: { fontSize: 16, fontWeight: 'bold' },
+  bookDate: { fontSize: 12, marginTop: 2 },
   bookRight: { flexDirection: 'row', alignItems: 'center' },
   balance: { fontSize: 16, fontWeight: 'bold' },
-  positiveBalance: { color: '#2e7d32' },
-  negativeBalance: { color: '#d32f2f' },
+  positiveBalance: { color: '#4caf50' },
+  negativeBalance: { color: '#f44336' },
   fab: { position: 'absolute', width: 60, height: 60, borderRadius: 30, backgroundColor: '#4154f1', justifyContent: 'center', alignItems: 'center', right: 20, bottom: 20, elevation: 5 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { width: '80%', backgroundColor: '#fff', borderRadius: 10, padding: 20 },
+  modalContent: { width: '80%', borderRadius: 10, padding: 20 },
   modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
-  input: { borderWidth: 1, borderColor: '#ddd', padding: 10, borderRadius: 8, marginBottom: 20, fontSize: 16 },
+  input: { borderWidth: 1, padding: 10, borderRadius: 8, marginBottom: 20, fontSize: 16 },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 15 },
   cancelBtn: { padding: 10 },
-  cancelBtnText: { color: '#666', fontWeight: 'bold' },
+  cancelBtnText: { fontWeight: 'bold' },
   saveBtn: { backgroundColor: '#4154f1', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8 },
   saveBtnText: { color: '#fff', fontWeight: 'bold' }
 });

@@ -2,6 +2,7 @@
   "expo": {
     "name": "ExpenseTracker",
     "slug": "ExpenseTracker",
+    "scheme": "com.gokul.expensetracker",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -12,14 +13,7 @@
       "supportsTablet": true
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "package": "com.gokul.expensetracker"
     },
     "web": {
       "output": "static",
@@ -45,6 +39,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b0fd5b5b-bab9-4f35-bf56-882bd929774a"
+      }
     }
   }
 }

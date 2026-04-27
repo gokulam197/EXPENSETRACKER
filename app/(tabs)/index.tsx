@@ -1,11 +1,11 @@
 import { useState, useCallback } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
-import { PieChart } from 'react-native-chart-kit';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, TextInput, Alert, Dimensions, useColorScheme } from 'react-native';
+import { PieChart, LineChart } from 'react-native-chart-kit';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, TextInput, Alert, Dimensions } from 'react-native';
 import { useAppTheme } from '../context/ThemeContext';
 
-// FIREBASE IMPORTS (ക്ലീൻ ചെയ്തു)
+// FIREBASE IMPORTS
 import { collection, getDocs, addDoc, query, where, deleteDoc, doc } from 'firebase/firestore';
 import { db, auth } from '../../database/firebaseConfig';
 
@@ -27,6 +27,7 @@ export default function HomeScreen() {
   const [newBookName, setNewBookName] = useState('');
   
   const [chartData, setChartData] = useState<any[]>([]);
+  const [lineChartData, setLineChartData] = useState<any>(null); // Puthiya Line Chart State
   const [topCategory, setTopCategory] = useState({ name: 'None', amount: 0 });
   const [totalMonthlyExpense, setTotalMonthlyExpense] = useState(0);
 
@@ -112,6 +113,29 @@ export default function HomeScreen() {
       setTopCategory({ name: topCatName, amount: topCatAmt });
       setChartData(pieData);
 
+      // --- PUTHIYA LINE CHART LOGIC (Last 6 Months Trend) ---
+      const last6Months = [];
+      const currentDate = new Date();
+      
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+        last6Months.push({
+          label: d.toLocaleDateString('en-US', { month: 'short' }), // eg: "Jan"
+          year: d.getFullYear().toString()
+        });
+      }
+
+      const monthlyTrend = last6Months.map(m => {
+        return txList
+          .filter(tx => tx.type === 'Expense' && tx.date.includes(m.label) && tx.date.includes(m.year))
+          .reduce((acc, curr) => acc + curr.amount, 0);
+      });
+
+      setLineChartData({
+        labels: last6Months.map(m => m.label),
+        datasets: [{ data: monthlyTrend.length > 0 ? monthlyTrend : [0,0,0,0,0,0] }]
+      });
+
     } catch (error) {
       console.error("Firebase fetch error:", error);
     }
@@ -142,23 +166,18 @@ export default function HomeScreen() {
     }
   };
 
-  // --- PUTHIYATHAYI ADD CHEYTHA DELETE FUNCTION ---
   const handleDeleteBook = (bookId: string, bookName: string) => {
     Alert.alert("Delete Book", `"${bookName}" ഡിലീറ്റ് ചെയ്യണോ? ഇതിലെ എല്ലാ ട്രാൻസാക്ഷൻസും നഷ്ടപ്പെടും.`, [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: async () => {
           try {
-            // Book delete cheyyunnu
             await deleteDoc(doc(db, 'books', bookId));
-            
-            // Aa book-le transactions delete cheyyunnu
             const q = query(collection(db, 'transactions'), where("book_id", "==", bookId));
             const txSnap = await getDocs(q);
             txSnap.forEach(async (tDoc) => {
               await deleteDoc(doc(db, 'transactions', tDoc.id));
             });
-            
-            fetchDashboardData(); // List refresh cheyyunnu
+            fetchDashboardData(); 
           } catch (error) {
             console.error("Delete Error:", error);
             Alert.alert("Error", "Book delete cheyyan pattiyilla.");
@@ -177,6 +196,7 @@ export default function HomeScreen() {
       <FlatList
         ListHeaderComponent={(
           <View>
+            {/* 1. PIE CHART CARD */}
             <View style={[styles.statsCard, { backgroundColor: themeCard }]}>
               <View style={[styles.statsHeader, { borderBottomColor: themeBorder }]}>
                 <Text style={[styles.statsTitle, { color: themeSubText }]}>This Month's Expense</Text>
@@ -210,6 +230,44 @@ export default function HomeScreen() {
                 </View>
               )}
             </View>
+
+{/* 2. PUTHIYA LINE CHART CARD (Expense Trend) */}
+{lineChartData && (
+              <View style={[styles.statsCard, { backgroundColor: themeCard, marginTop: 0 }]}>
+                <View style={[styles.statsHeader, { borderBottomColor: themeBorder, paddingBottom: 15 }]}>
+                  <Text style={[styles.statsTitle, { color: themeText }]}>6-Month Expense Trend</Text>
+                  <FontAwesome name="line-chart" size={18} color="#4154f1" />
+                </View>
+                <LineChart
+                  data={lineChartData}
+                  width={screenWidth - 70} 
+                  height={200}
+                  yAxisLabel="₹"
+                  yAxisSuffix=""
+                  chartConfig={{
+                    backgroundColor: themeCard,
+                    backgroundGradientFrom: themeCard,
+                    backgroundGradientTo: themeCard,
+                    decimalPlaces: 0,
+                    color: (opacity = 1) => `rgba(65, 84, 241, ${opacity})`, 
+                    labelColor: (opacity = 1) => themeSubText,
+                    style: { borderRadius: 16 },
+                    propsForDots: { r: "5", strokeWidth: "2", stroke: "#4154f1" }
+                  }}
+                  bezier 
+                  style={{ marginVertical: 10, borderRadius: 16, alignSelf: 'center' }}
+                  
+                  // --- IVIDE AANU NAMMAL CLICK ACTION ADD CHEYYUNNATHU ---
+                  onDataPointClick={(data) => {
+                    // ഏത് മാസമാണ് ക്ലിക്ക് ചെയ്തത് എന്ന് കണ്ടുപിടിക്കുന്നു
+                    const month = lineChartData.labels[data.index];
+                    // ആ മാസത്തെ ചിലവ് പോപ്പ്-അപ്പ് ആയി കാണിക്കുന്നു
+                    Alert.alert(`${month} Expense`, `₹ ${data.value}`);
+                  }}
+                />
+              </View>
+            )}
+            
             <Text style={[styles.sectionTitle, { color: themeText }]}>Your Books</Text>
           </View>
         )}
@@ -230,7 +288,6 @@ export default function HomeScreen() {
               </View>
             </View>
             
-            {/* IVIDE YANU DELETE ICON ADD CHEYTHATHU */}
             <View style={styles.bookRight}>
               <Text style={[styles.balance, item.balance >= 0 ? styles.positiveBalance : styles.negativeBalance]}>
                 {item.balance >= 0 ? '' : '-'}{Math.abs(item.balance).toFixed(2)}

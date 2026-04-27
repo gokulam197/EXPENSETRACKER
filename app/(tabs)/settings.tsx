@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView } from 'react-native';
+import { View, Share, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -49,6 +49,17 @@ export default function SettingsScreen() {
       Alert.alert('Error', 'Feedback send cheyyan pattiyilla.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // app share cheyyan
+  const onShare = async () => {
+    try {
+      const result = await Share.share({
+        message: 'Hey! Check out this Expense Tracker app. It helps me manage my daily expenses easily! 💸 \n\n[Download Link Here]',
+      });
+    } catch (error: any) {
+      Alert.alert(error.message);
     }
   };
 
@@ -112,6 +123,15 @@ export default function SettingsScreen() {
             <Text style={styles.submitBtnText}>{isSubmitting ? "Sending..." : "Submit Feedback"}</Text>
           </TouchableOpacity>
         </View>
+
+                    {/* SHARE APP BUTTON */}
+          <TouchableOpacity style={[styles.infoCard, { backgroundColor: themeCard }]} onPress={onShare}>
+            <FontAwesome name="share-alt" size={30} color="#4caf50" style={{ marginBottom: 10 }} />
+            <Text style={[styles.infoTitle, { color: themeText }]}>Invite Friends</Text>
+            <Text style={[styles.infoDesc, { color: themeSubText }]}>
+              Ee app ningalkku upakarapradhamayittu thonniyengil koottukaarkkum share cheyyuka!
+            </Text>
+          </TouchableOpacity>
 
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <FontAwesome name="sign-out" size={20} color="#fff" style={{ marginRight: 10 }} />

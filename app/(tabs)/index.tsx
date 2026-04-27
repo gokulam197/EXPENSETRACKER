@@ -15,15 +15,20 @@ export default function HomeScreen() {
   const { isDarkMode } = useAppTheme();
 
   // --- PREMIUM FINTECH COLOR PALETTE ---
-  const themeContainer = isDarkMode ? '#0F172A' : '#F3F4F6';
+  const themeContainer = isDarkMode ? '#0F172A' : '#F8FAFC';
   const themeCard = isDarkMode ? '#1E293B' : '#FFFFFF';
-  const themeText = isDarkMode ? '#F9FAFB' : '#111827';
-  const themeSubText = isDarkMode ? '#9CA3AF' : '#6B7280';
-  const themeBorder = isDarkMode ? '#334155' : '#E5E7EB';
+  const themeText = isDarkMode ? '#F9FAFB' : '#0F172A';
+  const themeSubText = isDarkMode ? '#9CA3AF' : '#64748B';
+  const themeBorder = isDarkMode ? '#334155' : '#E2E8F0';
   
-  const colorIncome = isDarkMode ? '#34D399' : '#10B981';
-  const colorExpense = isDarkMode ? '#F87171' : '#EF4444';
+  const colorIncome = isDarkMode ? '#34D399' : '#059669';
+  const colorExpense = isDarkMode ? '#F87171' : '#DC2626';
   const brandPrimary = '#4154f1';
+  
+  // --- SOFT PASTEL COLORS FOR CHARTS IN DARK MODE ---
+  const chartLineColor = isDarkMode ? '#818CF8' : brandPrimary; // Soft Indigo for Dark Mode
+  const pieColorsDark = ['#FCA5A5', '#93C5FD', '#6EE7B7', '#FDE047', '#C4B5FD', '#5EEAD4']; // Soft Muted Colors
+  const pieColorsLight = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#14B8A6']; // Vibrant Colors
 
   const [books, setBooks] = useState<any[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -62,6 +67,7 @@ export default function HomeScreen() {
         ...doc.data()
       })) as any[];
 
+      // SORTING: Ettavum puthiya/update cheytha book mukalil varan
       booksList.sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0));
 
       const qTx = query(collection(db, 'transactions'), where("userId", "==", userUid));
@@ -105,7 +111,7 @@ export default function HomeScreen() {
       let topCatName = 'None';
       let topCatAmt = 0;
       let pieData: any = [];
-      const pieColors = ['#F87171', '#60A5FA', '#34D399', '#FBBF24', '#A78BFA', '#2DD4BF'];
+      const pieColors = isDarkMode ? pieColorsDark : pieColorsLight;
 
       let colorIndex = 0;
       Object.entries(categoryMap).forEach(([key, value]) => {
@@ -117,7 +123,7 @@ export default function HomeScreen() {
           name: key,
           amount: value,
           color: pieColors[colorIndex % pieColors.length],
-          legendFontColor: isDarkMode ? '#9CA3AF' : '#6B7280',
+          legendFontColor: isDarkMode ? '#E2E8F0' : '#475569',
           legendFontSize: 12
         });
         colorIndex++;
@@ -285,7 +291,9 @@ export default function HomeScreen() {
                     data={chartData}
                     width={screenWidth - 60}
                     height={180}
-                    chartConfig={{ color: (opacity = 1) => `rgba(${isDarkMode ? '249, 250, 251' : '17, 24, 39'}, ${opacity})` }}
+                    chartConfig={{ 
+                      color: (opacity = 1) => `rgba(${isDarkMode ? '249, 250, 251' : '17, 24, 39'}, ${opacity})`
+                    }}
                     accessor={"amount"}
                     backgroundColor={"transparent"}
                     paddingLeft={"15"}
@@ -293,8 +301,8 @@ export default function HomeScreen() {
                     absolute
                   />
                   <View style={[styles.topCatContainer, { backgroundColor: isDarkMode ? '#334155' : '#FEF3C7' }]}>
-                    <Text style={[styles.topCatLabel, { color: isDarkMode ? '#FCD34D' : '#D97706' }]}>Highest Expense:</Text>
-                    <Text style={[styles.topCatValue, { color: isDarkMode ? '#FCD34D' : '#D97706' }]}>{topCategory.name} (₹{topCategory.amount.toLocaleString('en-IN')})</Text>
+                    <Text style={[styles.topCatLabel, { color: isDarkMode ? '#FDE047' : '#D97706' }]}>Highest Expense:</Text>
+                    <Text style={[styles.topCatValue, { color: isDarkMode ? '#FDE047' : '#D97706' }]}>{topCategory.name} (₹{topCategory.amount.toLocaleString('en-IN')})</Text>
                   </View>
                 </>
               ) : (
@@ -309,7 +317,7 @@ export default function HomeScreen() {
               <View style={[styles.statsCard, { backgroundColor: themeCard, borderColor: themeBorder, marginTop: 0 }]}>
                 <View style={[styles.statsHeader, { borderBottomColor: themeBorder, paddingBottom: 15 }]}>
                   <Text style={[styles.statsTitle, { color: themeText }]}>6-Month Expense Trend</Text>
-                  <FontAwesome name="line-chart" size={18} color={brandPrimary} />
+                  <FontAwesome name="line-chart" size={18} color={chartLineColor} />
                 </View>
                 <LineChart
                   data={lineChartData}
@@ -322,10 +330,11 @@ export default function HomeScreen() {
                     backgroundGradientFrom: themeCard,
                     backgroundGradientTo: themeCard,
                     decimalPlaces: 0,
-                    color: (opacity = 1) => `rgba(65, 84, 241, ${opacity})`, 
+                    color: (opacity = 1) => isDarkMode ? `rgba(129, 140, 248, ${opacity})` : `rgba(65, 84, 241, ${opacity})`, 
                     labelColor: (opacity = 1) => themeSubText,
                     style: { borderRadius: 16 },
-                    propsForDots: { r: "5", strokeWidth: "2", stroke: brandPrimary }
+                    propsForDots: { r: "5", strokeWidth: "2", stroke: chartLineColor },
+                    propsForBackgroundLines: { stroke: themeBorder, strokeDasharray: "4" } // ഗ്രിഡ് ലൈനുകൾ സോഫ്റ്റ് ആക്കി
                   }}
                   bezier 
                   style={{ marginVertical: 10, borderRadius: 16, alignSelf: 'center' }}

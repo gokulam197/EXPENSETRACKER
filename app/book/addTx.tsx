@@ -7,7 +7,7 @@ import { Picker } from '@react-native-picker/picker';
 
 // FIREBASE IMPORTS
 import { collection, addDoc } from 'firebase/firestore';
-import { db } from '../../database/firebaseConfig';
+import { db, auth } from '../../database/firebaseConfig'; // auth add cheythu
 
 export default function AddTransactionScreen() {
   const systemTheme = useColorScheme();
@@ -53,12 +53,19 @@ export default function AddTransactionScreen() {
       return;
     }
 
+    const userUid = auth.currentUser?.uid;
+    if (!userUid) {
+      Alert.alert('Error', 'Login cheythittilla!');
+      return;
+    }
+
     try {
       const dateOpts: any = { month: 'short', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' };
       const formattedDate = date.toLocaleDateString('en-US', dateOpts);
       
       await addDoc(collection(db, 'transactions'), {
         book_id: bookId as string, 
+        userId: userUid, // Ee transaction aaraanu add cheythathu ennu save cheyyunnu
         type: type,
         amount: parseFloat(amount),
         category: category,

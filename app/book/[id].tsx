@@ -7,7 +7,7 @@ import * as Sharing from 'expo-sharing';
 
 // FIREBASE IMPORTS
 import { doc, getDoc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
-import { db } from '../../database/firebaseConfig';
+import { db, auth } from '../../database/firebaseConfig'; // auth add cheythu
 
 export default function BookDetailsScreen() {
   const systemTheme = useColorScheme();
@@ -39,10 +39,19 @@ export default function BookDetailsScreen() {
   );
 
   const fetchBookDetails = async () => {
+    const userUid = auth.currentUser?.uid;
+    if (!userUid) return;
+
     try {
       const bookRef = doc(db, 'books', id as string);
       const bookSnap = await getDoc(bookRef);
       if (bookSnap.exists()) {
+        // Ee book ee user-ntethu thanneyano ennu check cheyyunnu (Security)
+        if (bookSnap.data().userId !== userUid) {
+          Alert.alert("Unauthorized", "Ithu ningalude book alla!");
+          router.back();
+          return;
+        }
         setBookName(bookSnap.data().name);
       }
 
@@ -54,6 +63,8 @@ export default function BookDetailsScreen() {
         ...doc.data()
       })) as any[];
 
+      // Ee user-nte transactions mathram edukkunnu
+      txData = txData.filter(tx => tx.userId === userUid);
       txData.sort((a, b) => b.timestamp - a.timestamp);
 
       setAllTransactions(txData);

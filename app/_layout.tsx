@@ -49,6 +49,11 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="login" />
         <Stack.Screen name="(tabs)" />
+        
+        {/* Book folder-le pages explicit aayi add cheyyunnu */}
+        <Stack.Screen name="book/[id]" />
+        <Stack.Screen name="book/addTx" />
+        
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style="auto" />

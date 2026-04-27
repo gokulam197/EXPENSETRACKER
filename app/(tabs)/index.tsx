@@ -5,8 +5,8 @@ import { PieChart } from 'react-native-chart-kit';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, TextInput, Alert, Dimensions, useColorScheme } from 'react-native';
 
 // FIREBASE IMPORTS 
-import { collection, getDocs, addDoc } from 'firebase/firestore';
-import { db } from '../../database/firebaseConfig';
+import { collection, getDocs, addDoc, query, where } from 'firebase/firestore';
+import { db, auth } from '../../database/firebaseConfig';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -14,7 +14,7 @@ export default function HomeScreen() {
   const systemTheme = useColorScheme();
   const isDarkMode = systemTheme === 'dark';
 
-  // DYNAMIC COLORS (Light & Dark mode-nu vendi)
+  // DYNAMIC COLORS
   const themeContainer = isDarkMode ? '#121212' : '#f4f6f8';
   const themeCard = isDarkMode ? '#1e1e1e' : '#fff';
   const themeText = isDarkMode ? '#ffffff' : '#333333';
@@ -32,7 +32,6 @@ export default function HomeScreen() {
 
   const router = useRouter();
 
-  // isDarkMode maarumbol chart colors update aavan vendi array-il add cheythu
   useFocusEffect(
     useCallback(() => {
       fetchDashboardData();
@@ -40,14 +39,21 @@ export default function HomeScreen() {
   );
 
   const fetchDashboardData = async () => {
+    const userUid = auth.currentUser?.uid;
+    if (!userUid) return; // User login aayillengil onnum cheyyanda
+
     try {
-      const booksSnapshot = await getDocs(collection(db, 'books'));
+      // 1. Ee user-nte books mathram fetch cheyyunnu
+      const qBooks = query(collection(db, 'books'), where("userId", "==", userUid));
+      const booksSnapshot = await getDocs(qBooks);
       const booksList = booksSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as any[];
 
-      const txSnapshot = await getDocs(collection(db, 'transactions'));
+      // 2. Ee user-nte transactions mathram fetch cheyyunnu
+      const qTx = query(collection(db, 'transactions'), where("userId", "==", userUid));
+      const txSnapshot = await getDocs(qTx);
       const txList = txSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -99,7 +105,7 @@ export default function HomeScreen() {
           name: key,
           amount: value,
           color: colors[colorIndex % colors.length],
-          legendFontColor: isDarkMode ? '#aaaaaa' : '#7F7F7F', // Dynamic legend color
+          legendFontColor: isDarkMode ? '#aaaaaa' : '#7F7F7F',
           legendFontSize: 12
         });
         colorIndex++;
@@ -119,12 +125,14 @@ export default function HomeScreen() {
       return;
     }
     try {
+      const userUid = auth.currentUser?.uid;
       const dateOpts: any = { month: 'short', day: '2-digit', year: 'numeric' };
       const formattedDate = new Date().toLocaleDateString('en-US', dateOpts);
       
       await addDoc(collection(db, 'books'), {
         name: newBookName,
-        created_at: formattedDate
+        created_at: formattedDate,
+        userId: userUid // Ee book aaraanu undakkiyathu ennu save cheyyunnu
       });
       
       setNewBookName('');
@@ -184,7 +192,10 @@ export default function HomeScreen() {
         data={books}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
-          <TouchableOpacity style={[styles.bookCard, { backgroundColor: themeCard }]} onPress={() => router.push(`/book/${item.id}`)}>
+          <TouchableOpacity 
+            style={[styles.bookCard, { backgroundColor: themeCard }]} 
+            onPress={() => router.push({ pathname: '/book/[id]', params: { id: item.id } })}
+          >
             <View style={styles.bookLeft}>
               <View style={styles.iconContainer}>
                 <FontAwesome name="book" size={20} color="#fff" />
@@ -202,6 +213,11 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
         contentContainerStyle={{ paddingBottom: 80 }}
+        ListEmptyComponent={
+          <View style={{ alignItems: 'center', marginTop: 20 }}>
+            <Text style={{ color: themeSubText }}>No books found. Click '+' to create one.</Text>
+          </View>
+        }
       />
 
       <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>

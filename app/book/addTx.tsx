@@ -4,14 +4,14 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker'; 
+import { useAppTheme } from '../context/ThemeContext';
 
 // FIREBASE IMPORTS
 import { collection, addDoc } from 'firebase/firestore';
 import { db, auth } from '../../database/firebaseConfig'; // auth add cheythu
 
 export default function AddTransactionScreen() {
-  const systemTheme = useColorScheme();
-  const isDarkMode = systemTheme === 'dark';
+  const { isDarkMode } = useAppTheme();
 
   // DYNAMIC COLORS
   const themeContainer = isDarkMode ? '#121212' : '#ffffff';
@@ -131,13 +131,22 @@ export default function AddTransactionScreen() {
           <Text style={[styles.label, { color: themeSubText }]}>Category</Text>
           <View style={[styles.pickerContainer, { backgroundColor: inputBg, borderColor: themeBorder }]}>
             <Picker
+              key={isDarkMode ? 'dark' : 'light'} // ഇതാണ് main fix! തീം മാറുമ്പോൾ ഇത് ഓട്ടോമാറ്റിക് റിഫ്രഷ് ആകും
               selectedValue={category}
               onValueChange={(itemValue) => setCategory(itemValue)}
-              style={[styles.picker, { color: themeText }]}
+              style={[styles.picker, { color: themeText, backgroundColor: inputBg }]}
               dropdownIconColor={themeText}
+              themeVariant={isDarkMode ? 'dark' : 'light'} // iOS-ന് വേണ്ടി
+              mode="dropdown" // ആൻഡ്രോയിഡിൽ കാണാൻ ഭംഗി കിട്ടാൻ
             >
               {availableCategories.map((cat, index) => (
-                <Picker.Item key={index} label={cat} value={cat} color={isDarkMode ? '#ffffff' : '#000000'} />
+                <Picker.Item 
+                  key={index} 
+                  label={cat} 
+                  value={cat} 
+                  color={isDarkMode ? '#ffffff' : '#000000'} // ലിസ്റ്റിലെ ടെക്സ്റ്റ് കളർ
+                  style={{ backgroundColor: inputBg }} // ലിസ്റ്റിന്റെ ബാക്ക്ഗ്രൗണ്ട് കറുപ്പാക്കാൻ
+                />
               ))}
             </Picker>
           </View>

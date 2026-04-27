@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { ActivityIndicator, View } from 'react-native';
+import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AppThemeProvider, useAppTheme } from './context/ThemeContext';
 import { initDB } from '../database/db'; 
-
-// FIREBASE IMPORTS
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../database/firebaseConfig';
 
@@ -15,8 +14,8 @@ export const unstable_settings = {
   anchor: '(tabs)',
 };
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+function RootLayoutNav() {
+  const { isDarkMode } = useAppTheme();
   const router = useRouter();
   const segments = useSegments(); 
   
@@ -27,7 +26,7 @@ export default function RootLayout() {
     initDB(); 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (initializing) setInitializing(false);
+      setInitializing(false);
     });
     return unsubscribe;
   }, []);
@@ -35,28 +34,42 @@ export default function RootLayout() {
   useEffect(() => {
     if (initializing) return;
 
-    const inTabsGroup = segments[0] === '(tabs)';
+    const inLoginScreen = segments[0] === 'login';
 
-    if (user && !inTabsGroup) {
+    if (user && inLoginScreen) {
       router.replace('/(tabs)');
-    } else if (!user && inTabsGroup) {
+    } else if (!user && !inLoginScreen) {
       router.replace('/login');
     }
   }, [user, initializing, segments]);
 
+  // Auth check cheyyunna vare oru loading screen kanikkunnu
+  if (initializing) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: isDarkMode ? '#121212' : '#f4f6f8' }}>
+        <ActivityIndicator size="large" color="#4154f1" />
+      </View>
+    );
+  }
+
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <NavigationThemeProvider value={isDarkMode ? DarkTheme : DefaultTheme}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="login" />
         <Stack.Screen name="(tabs)" />
-        
-        {/* Book folder-le pages explicit aayi add cheyyunnu */}
         <Stack.Screen name="book/[id]" />
         <Stack.Screen name="book/addTx" />
-        
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+      <StatusBar style={isDarkMode ? 'light' : 'dark'} />
+    </NavigationThemeProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <AppThemeProvider>
+      <RootLayoutNav />
+    </AppThemeProvider>
   );
 }

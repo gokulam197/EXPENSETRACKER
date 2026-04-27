@@ -24,14 +24,10 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
         }}
       />
+      
+      {/* Ivide undayirunna "add" tab code nammal mayichu kalanju! */}
+
       <Tabs.Screen
-  name="add"
-  options={{
-    title: 'Add',
-    tabBarIcon: ({ color }) => <FontAwesome size={28} name="plus-circle" color={color} />
-  }}
-/>
-<Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',

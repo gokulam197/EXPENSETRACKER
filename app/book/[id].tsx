@@ -4,14 +4,14 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import { useAppTheme } from '../context/ThemeContext';
 
 // FIREBASE IMPORTS
 import { doc, getDoc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../../database/firebaseConfig'; // auth add cheythu
 
 export default function BookDetailsScreen() {
-  const systemTheme = useColorScheme();
-  const isDarkMode = systemTheme === 'dark';
+  const { isDarkMode } = useAppTheme();
 
   // DYNAMIC COLORS
   const themeContainer = isDarkMode ? '#121212' : '#f4f6f8';

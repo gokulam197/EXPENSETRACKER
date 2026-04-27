@@ -24,23 +24,24 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // LOGIN FUNCTION
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Email-um Password-um kodukkuka!');
-      return;
-    }
-    setIsLoading(true);
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      // _layout.tsx aale auto aayi (tabs)-lekku kondupokum
-    } catch (error: any) {
-      console.error("Login Error:", error.message);
-      Alert.alert('Login Failed', 'Email allenkil Password thettaanu. Puthuthaayi aanengil Create Account adikkuka.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+// LOGIN FUNCTION
+const handleLogin = async () => {
+  if (!email || !password) {
+    Alert.alert('Error', 'Email-um Password-um kodukkuka!');
+    return;
+  }
+  setIsLoading(true);
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    // വിജയകരമായി ലോഗിൻ ചെയ്താൽ നേരിട്ട് ഡാഷ്ബോർഡിലേക്ക് വിടുന്നു
+    router.replace('/(tabs)'); 
+  } catch (error: any) {
+    console.error("Login Error:", error.message);
+    Alert.alert('Login Failed', 'Email അല്ലെങ്കിൽ Password തെറ്റാണ്.');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // SIGN UP FUNCTION
   const handleSignUp = async () => {

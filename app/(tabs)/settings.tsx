@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -8,12 +8,16 @@ import { collection, addDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { db, auth } from '../../database/firebaseConfig';
 
+// നമ്മുടെ പുതിയ തീം ഹുക്ക്
+import { useAppTheme } from '../context/ThemeContext';
+
 export default function SettingsScreen() {
   const router = useRouter();
-  const systemTheme = useColorScheme();
-  const isDarkMode = systemTheme === 'dark';
+  
+  // സിസ്റ്റം തീമിന് പകരം നമ്മുടെ ആപ്പ് തീം ഉപയോഗിക്കുന്നു!
+  const { isDarkMode, toggleTheme } = useAppTheme();
 
-  // DYNAMIC COLORS (Light & Dark mode-nu vendi)
+  // DYNAMIC COLORS
   const themeContainer = isDarkMode ? '#121212' : '#f4f6f8';
   const themeCard = isDarkMode ? '#1e1e1e' : '#ffffff';
   const themeText = isDarkMode ? '#ffffff' : '#333333';
@@ -29,7 +33,6 @@ export default function SettingsScreen() {
       Alert.alert('Error', 'Feedback enthenkilum type cheyyuka!');
       return;
     }
-
     setIsSubmitting(true);
     try {
       await addDoc(collection(db, 'feedbacks'), {
@@ -37,33 +40,27 @@ export default function SettingsScreen() {
         timestamp: new Date().getTime(),
         date: new Date().toLocaleDateString('en-US'),
         app_version: "1.0.0 (Beta)",
-        user: auth.currentUser?.email // Ee feedback aaranu ayachathu ennu ariyan email koodi add cheythu
+        user: auth.currentUser?.email 
       });
-      
-      Alert.alert('Thank You!', 'Ningalude feedback success aayi send cheythu. App use cheythathinu nanni! 😊');
+      Alert.alert('Thank You!', 'Ningalude feedback success aayi send cheythu. 😊');
       setFeedback(''); 
     } catch (error) {
       console.error("Feedback Error:", error);
-      Alert.alert('Error', 'Feedback send cheyyan pattiyilla. Internet connection check cheyyuka.');
+      Alert.alert('Error', 'Feedback send cheyyan pattiyilla.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // LOGOUT FUNCTION
   const handleLogout = () => {
     Alert.alert("Logout", "App-il ninnu purathu pokano?", [
       { text: "Cancel", style: "cancel" },
-      { 
-        text: "Logout", 
-        style: "destructive", 
-        onPress: async () => {
+      { text: "Logout", style: "destructive", onPress: async () => {
           try {
             await signOut(auth);
-            router.replace('/login'); // Logout aayal nere login page-lekku pokum
+            router.replace('/login');
           } catch (error) {
             console.error("Logout Error:", error);
-            Alert.alert("Error", "Logout cheyyan pattiyilla.");
           }
         } 
       }
@@ -77,38 +74,32 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.content}>
-        {/* App Info Card */}
         <View style={[styles.infoCard, { backgroundColor: themeCard }]}>
           <FontAwesome name="rocket" size={40} color="#4154f1" style={{ marginBottom: 15 }} />
           <Text style={[styles.infoTitle, { color: themeText }]}>Expense Tracker (Beta)</Text>
-          <Text style={[styles.infoDesc, { color: themeSubText }]}>
-            Ithu Cloud Sync ulla oru secure app aanu. Ningalude data real-time aayi safe aayi save aavunnundu.
-          </Text>
-          {/* Login cheytha email kanikkan */}
-          <Text style={[styles.userEmail, { color: themeSubText }]}>
-            Logged in as: {auth.currentUser?.email}
-          </Text>
+          <Text style={[styles.infoDesc, { color: themeSubText }]}>Cloud Sync ulla secure app. Data real-time aayi safe aayi save aavunnundu.</Text>
+          <Text style={[styles.userEmail, { color: themeSubText }]}>Logged in as: {auth.currentUser?.email}</Text>
         </View>
 
-        {/* Theme Info Card */}
+        {/* IVIDEYANU THEME TOGGLE BUTTON ADD CHEYTHATHU */}
         <View style={[styles.infoCard, { backgroundColor: themeCard }]}>
-          <FontAwesome name={isDarkMode ? "moon-o" : "sun-o"} size={35} color="#4154f1" style={{ marginBottom: 10 }} />
-          <Text style={[styles.infoTitle, { color: themeText }]}>Theme Settings</Text>
-          <Text style={[styles.infoDesc, { color: themeSubText }]}>
-            App ippol ningalude phone-ile system theme follow cheyyunnundu. Phone dark mode aakkumbol app-um auto aayi dark mode aakum.
+          <FontAwesome name={isDarkMode ? "moon-o" : "sun-o"} size={35} color={isDarkMode ? "#fdd835" : "#ff9800"} style={{ marginBottom: 10 }} />
+          <Text style={[styles.infoTitle, { color: themeText }]}>Appearance</Text>
+          <Text style={[styles.infoDesc, { color: themeSubText, marginBottom: 15 }]}>
+            Change your app theme manually.
           </Text>
+          <TouchableOpacity onPress={toggleTheme} style={styles.themeToggleBtn}>
+            <Text style={styles.themeToggleText}>
+              Switch to {isDarkMode ? 'Light' : 'Dark'} Mode
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Feedback Section */}
         <View style={[styles.feedbackSection, { backgroundColor: themeCard }]}>
           <Text style={[styles.sectionTitle, { color: themeText }]}>Send Feedback</Text>
-          <Text style={[styles.feedbackDesc, { color: themeSubText }]}>
-            App use cheythittu enthu thonnunnu? Puthiyathayi enthenkilum features venamo? Thazhe type cheythu ariyikkuka!
-          </Text>
-          
           <TextInput
             style={[styles.feedbackInput, { color: themeText, borderColor: themeBorder, backgroundColor: inputBg }]}
-            placeholder="Type your suggestions, bugs, or feedback here..."
+            placeholder="Type your suggestions, bugs..."
             placeholderTextColor={themeSubText}
             multiline={true}
             numberOfLines={5}
@@ -116,25 +107,16 @@ export default function SettingsScreen() {
             value={feedback}
             onChangeText={setFeedback}
           />
-
-          <TouchableOpacity 
-            style={[styles.submitBtn, isSubmitting && styles.disabledBtn]} 
-            onPress={submitFeedback}
-            disabled={isSubmitting}
-          >
+          <TouchableOpacity style={[styles.submitBtn, isSubmitting && styles.disabledBtn]} onPress={submitFeedback} disabled={isSubmitting}>
             <FontAwesome name="paper-plane" size={18} color="#fff" style={{ marginRight: 10 }} />
-            <Text style={styles.submitBtnText}>
-              {isSubmitting ? "Sending..." : "Submit Feedback"}
-            </Text>
+            <Text style={styles.submitBtnText}>{isSubmitting ? "Sending..." : "Submit Feedback"}</Text>
           </TouchableOpacity>
         </View>
 
-        {/* LOGOUT BUTTON */}
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <FontAwesome name="sign-out" size={20} color="#fff" style={{ marginRight: 10 }} />
           <Text style={styles.logoutBtnText}>Logout</Text>
         </TouchableOpacity>
-
       </View>
     </ScrollView>
   );
@@ -145,22 +127,18 @@ const styles = StyleSheet.create({
   header: { padding: 20, paddingTop: 50, borderBottomWidth: 1 },
   headerTitle: { fontSize: 22, fontWeight: 'bold' },
   content: { padding: 20, paddingBottom: 40 },
-  
   infoCard: { padding: 25, borderRadius: 15, alignItems: 'center', elevation: 2, marginBottom: 20 },
-  infoTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
+  infoTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 5 },
   infoDesc: { textAlign: 'center', fontSize: 14, lineHeight: 22 },
   userEmail: { marginTop: 15, fontSize: 13, fontWeight: 'bold', fontStyle: 'italic' },
-
+  themeToggleBtn: { backgroundColor: '#4154f1', paddingVertical: 12, paddingHorizontal: 25, borderRadius: 10 },
+  themeToggleText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
   feedbackSection: { width: '100%', padding: 20, borderRadius: 15, elevation: 2, marginBottom: 20 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
-  feedbackDesc: { fontSize: 14, marginBottom: 15, lineHeight: 20 },
-  
   feedbackInput: { borderWidth: 1, padding: 15, borderRadius: 10, fontSize: 16, height: 120, marginBottom: 15 },
-  
   submitBtn: { flexDirection: 'row', backgroundColor: '#4154f1', padding: 15, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   disabledBtn: { backgroundColor: '#a0aaff' },
   submitBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-
   logoutBtn: { flexDirection: 'row', backgroundColor: '#f44336', padding: 15, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
   logoutBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
 });

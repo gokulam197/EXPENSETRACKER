@@ -3,16 +3,16 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import { PieChart } from 'react-native-chart-kit';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, TextInput, Alert, Dimensions, useColorScheme } from 'react-native';
+import { useAppTheme } from '../context/ThemeContext';
 
-// FIREBASE IMPORTS 
-import { collection, getDocs, addDoc, query, where } from 'firebase/firestore';
+// FIREBASE IMPORTS (ക്ലീൻ ചെയ്തു)
+import { collection, getDocs, addDoc, query, where, deleteDoc, doc } from 'firebase/firestore';
 import { db, auth } from '../../database/firebaseConfig';
 
 const screenWidth = Dimensions.get('window').width;
 
 export default function HomeScreen() {
-  const systemTheme = useColorScheme();
-  const isDarkMode = systemTheme === 'dark';
+  const { isDarkMode } = useAppTheme();
 
   // DYNAMIC COLORS
   const themeContainer = isDarkMode ? '#121212' : '#f4f6f8';
@@ -40,10 +40,9 @@ export default function HomeScreen() {
 
   const fetchDashboardData = async () => {
     const userUid = auth.currentUser?.uid;
-    if (!userUid) return; // User login aayillengil onnum cheyyanda
+    if (!userUid) return;
 
     try {
-      // 1. Ee user-nte books mathram fetch cheyyunnu
       const qBooks = query(collection(db, 'books'), where("userId", "==", userUid));
       const booksSnapshot = await getDocs(qBooks);
       const booksList = booksSnapshot.docs.map(doc => ({
@@ -51,7 +50,6 @@ export default function HomeScreen() {
         ...doc.data()
       })) as any[];
 
-      // 2. Ee user-nte transactions mathram fetch cheyyunnu
       const qTx = query(collection(db, 'transactions'), where("userId", "==", userUid));
       const txSnapshot = await getDocs(qTx);
       const txList = txSnapshot.docs.map(doc => ({
@@ -132,7 +130,7 @@ export default function HomeScreen() {
       await addDoc(collection(db, 'books'), {
         name: newBookName,
         created_at: formattedDate,
-        userId: userUid // Ee book aaraanu undakkiyathu ennu save cheyyunnu
+        userId: userUid 
       });
       
       setNewBookName('');
@@ -142,6 +140,32 @@ export default function HomeScreen() {
       console.error("Insert Error:", error);
       Alert.alert('Error', 'Book add cheyyan pattiyilla!');
     }
+  };
+
+  // --- PUTHIYATHAYI ADD CHEYTHA DELETE FUNCTION ---
+  const handleDeleteBook = (bookId: string, bookName: string) => {
+    Alert.alert("Delete Book", `"${bookName}" ഡിലീറ്റ് ചെയ്യണോ? ഇതിലെ എല്ലാ ട്രാൻസാക്ഷൻസും നഷ്ടപ്പെടും.`, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: async () => {
+          try {
+            // Book delete cheyyunnu
+            await deleteDoc(doc(db, 'books', bookId));
+            
+            // Aa book-le transactions delete cheyyunnu
+            const q = query(collection(db, 'transactions'), where("book_id", "==", bookId));
+            const txSnap = await getDocs(q);
+            txSnap.forEach(async (tDoc) => {
+              await deleteDoc(doc(db, 'transactions', tDoc.id));
+            });
+            
+            fetchDashboardData(); // List refresh cheyyunnu
+          } catch (error) {
+            console.error("Delete Error:", error);
+            Alert.alert("Error", "Book delete cheyyan pattiyilla.");
+          }
+        }
+      }
+    ]);
   };
 
   return (
@@ -205,10 +229,15 @@ export default function HomeScreen() {
                 <Text style={[styles.bookDate, { color: themeSubText }]}>Updated on {item.created_at}</Text>
               </View>
             </View>
+            
+            {/* IVIDE YANU DELETE ICON ADD CHEYTHATHU */}
             <View style={styles.bookRight}>
               <Text style={[styles.balance, item.balance >= 0 ? styles.positiveBalance : styles.negativeBalance]}>
                 {item.balance >= 0 ? '' : '-'}{Math.abs(item.balance).toFixed(2)}
               </Text>
+              <TouchableOpacity onPress={() => handleDeleteBook(item.id, item.name)} style={{ marginLeft: 15, padding: 5 }}>
+                <FontAwesome name="trash-o" size={20} color="#f44336" />
+              </TouchableOpacity>
             </View>
           </TouchableOpacity>
         )}

@@ -1,36 +1,95 @@
-import { useState } from 'react';
-import { View, Share, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView, Linking } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Share, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView, Linking, Switch, Platform } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as Notifications from 'expo-notifications'; // IMPORT EXPO NOTIFICATIONS
 
 // FIREBASE IMPORTS
 import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { db, auth } from '../../database/firebaseConfig';
 
-// നമ്മുടെ പുതിയ തീം ഹുക്ക്
 import { useAppTheme } from '../context/ThemeContext';
 
 export default function SettingsScreen() {
   const router = useRouter();
   
-  // സിസ്റ്റം തീമിന് പകരം നമ്മുടെ ആപ്പ് തീം ഉപയോഗിക്കുന്നു!
   const { isDarkMode, toggleTheme } = useAppTheme();
 
   // DYNAMIC COLORS
-  const themeContainer = isDarkMode ? '#121212' : '#f4f6f8';
-  const themeCard = isDarkMode ? '#1e1e1e' : '#ffffff';
-  const themeText = isDarkMode ? '#ffffff' : '#333333';
-  const themeSubText = isDarkMode ? '#aaaaaa' : '#666666';
-  const themeBorder = isDarkMode ? '#333333' : '#eeeeee';
-  const inputBg = isDarkMode ? '#2c2c2c' : '#fafafa';
+  const themeContainer = isDarkMode ? '#0F172A' : '#F8FAFC';
+  const themeCard = isDarkMode ? '#1E293B' : '#FFFFFF';
+  const themeText = isDarkMode ? '#F9FAFB' : '#0F172A';
+  const themeSubText = isDarkMode ? '#9CA3AF' : '#64748B';
+  const themeBorder = isDarkMode ? '#334155' : '#E2E8F0';
+  const inputBg = isDarkMode ? '#334155' : '#F1F5F9';
 
   const [feedback, setFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  
+  // REMINDER STATE
+  const [reminderEnabled, setReminderEnabled] = useState(false);
 
-  // CURRENT APP VERSION (ഇത് പുതിയ അപ്ഡേറ്റ് വരുമ്പോൾ 1.0.1 എന്നൊക്കെ ആക്കി മാറ്റണം)
   const CURRENT_APP_VERSION = "1.0.0";
+
+  // --- CHECK IF REMINDER IS ALREADY ON ---
+  useEffect(() => {
+    const checkNotificationStatus = async () => {
+      const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+      setReminderEnabled(scheduled.length > 0);
+    };
+    checkNotificationStatus();
+  }, []);
+
+  // --- TOGGLE DAILY REMINDER FUNCTION (FIXED) ---
+  const toggleReminder = async (value: boolean) => {
+    if (value) {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Notification enable cheyyan permission aavashyamanu.');
+        return;
+      }
+      
+      try {
+        // ANDROID 8.0+ നോട്ടിഫിക്കേഷൻ വരാൻ ചാനൽ ഉണ്ടാക്കുന്നു
+        if (Platform.OS === 'android') {
+          await Notifications.setNotificationChannelAsync('daily-reminder', {
+            name: 'Daily Reminder',
+            importance: Notifications.AndroidImportance.HIGH,
+            sound: 'default',
+          });
+        }
+
+        // SCHEDULE DAILY NOTIFICATION AT 9:00 PM
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "Daily Expense Tracker 💸",
+            body: "Innathe chilavukal add cheytho?",
+            sound: true,
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DAILY, // <-- FIXED THE TYPE ERROR
+            hour: 21,
+            minute: 0,
+            repeats: true,
+            channelId: Platform.OS === 'android' ? 'daily-reminder' : undefined, // <-- FIXED CHANNEL ID
+          },
+        });
+        
+        setReminderEnabled(true);
+        Alert.alert('Reminder Set', 'Daily reminder scheduled for 9:00 PM! 🌙');
+      } catch (error) {
+        console.error("Schedule Error: ", error);
+        Alert.alert('Error', 'Notification schedule cheyyan pattiyilla.');
+      }
+    } else {
+      // CANCEL NOTIFICATIONS
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      setReminderEnabled(false);
+      Alert.alert('Reminder Off', 'Daily reminders turned off.');
+    }
+  };
 
   const submitFeedback = async () => {
     if (!feedback.trim()) {
@@ -56,7 +115,6 @@ export default function SettingsScreen() {
     }
   };
 
-  // app share cheyyan
   const onShare = async () => {
     try {
       await Share.share({
@@ -67,7 +125,6 @@ export default function SettingsScreen() {
     }
   };
 
-  // --- CHECK FOR UPDATES FUNCTION ---
   const checkForUpdates = async () => {
     setIsCheckingUpdate(true);
     try {
@@ -121,15 +178,32 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.content}>
-        <View style={[styles.infoCard, { backgroundColor: themeCard }]}>
+        <View style={[styles.infoCard, { backgroundColor: themeCard, borderColor: themeBorder, borderWidth: 1 }]}>
           <FontAwesome name="rocket" size={40} color="#4154f1" style={{ marginBottom: 15 }} />
-          <Text style={[styles.infoTitle, { color: themeText }]}>Expense Tracker (Beta)</Text>
+          <Text style={[styles.infoTitle, { color: themeText }]}>Expense Tracker</Text>
           <Text style={[styles.infoDesc, { color: themeSubText }]}>Cloud Sync ulla secure app. Data real-time aayi safe aayi save aavunnundu.</Text>
           <Text style={[styles.userEmail, { color: themeSubText }]}>Logged in as: {auth.currentUser?.email}</Text>
           <Text style={[styles.versionText, { color: themeSubText }]}>Version: {CURRENT_APP_VERSION}</Text>
         </View>
 
-        {/* CHECK FOR UPDATES BUTTON */}
+        {/* NOTIFICATION TOGGLE */}
+        <View style={[styles.switchCard, { backgroundColor: themeCard, borderColor: themeBorder }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <FontAwesome name="bell" size={24} color="#4caf50" style={{ marginRight: 15 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.infoTitle, { color: themeText, fontSize: 16 }]}>Daily Reminder</Text>
+              <Text style={[styles.infoDesc, { color: themeSubText, textAlign: 'left', fontSize: 12 }]}>Get notified at 9 PM to log expenses</Text>
+            </View>
+          </View>
+          <Switch
+            trackColor={{ false: "#767577", true: "#81b0ff" }}
+            thumbColor={reminderEnabled ? "#4154f1" : "#f4f3f4"}
+            ios_backgroundColor="#3e3e3e"
+            onValueChange={toggleReminder}
+            value={reminderEnabled}
+          />
+        </View>
+
         <TouchableOpacity 
           style={[styles.updateBtn, { backgroundColor: themeCard, borderColor: themeBorder }]} 
           onPress={checkForUpdates} 
@@ -141,8 +215,7 @@ export default function SettingsScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* THEME TOGGLE BUTTON */}
-        <View style={[styles.infoCard, { backgroundColor: themeCard }]}>
+        <View style={[styles.infoCard, { backgroundColor: themeCard, borderColor: themeBorder, borderWidth: 1 }]}>
           <FontAwesome name={isDarkMode ? "moon-o" : "sun-o"} size={35} color={isDarkMode ? "#fdd835" : "#ff9800"} style={{ marginBottom: 10 }} />
           <Text style={[styles.infoTitle, { color: themeText }]}>Appearance</Text>
           <Text style={[styles.infoDesc, { color: themeSubText, marginBottom: 15 }]}>
@@ -155,8 +228,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* SHARE APP BUTTON */}
-        <TouchableOpacity style={[styles.infoCard, { backgroundColor: themeCard }]} onPress={onShare}>
+        <TouchableOpacity style={[styles.infoCard, { backgroundColor: themeCard, borderColor: themeBorder, borderWidth: 1 }]} onPress={onShare}>
           <FontAwesome name="share-alt" size={30} color="#4caf50" style={{ marginBottom: 10 }} />
           <Text style={[styles.infoTitle, { color: themeText }]}>Invite Friends</Text>
           <Text style={[styles.infoDesc, { color: themeSubText }]}>
@@ -164,7 +236,7 @@ export default function SettingsScreen() {
           </Text>
         </TouchableOpacity>
 
-        <View style={[styles.feedbackSection, { backgroundColor: themeCard }]}>
+        <View style={[styles.feedbackSection, { backgroundColor: themeCard, borderColor: themeBorder, borderWidth: 1 }]}>
           <Text style={[styles.sectionTitle, { color: themeText }]}>Send Feedback</Text>
           <TextInput
             style={[styles.feedbackInput, { color: themeText, borderColor: themeBorder, backgroundColor: inputBg }]}
@@ -193,7 +265,7 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { padding: 20, paddingTop: 50, borderBottomWidth: 1 },
+  header: { padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 40, borderBottomWidth: 1 },
   headerTitle: { fontSize: 22, fontWeight: 'bold' },
   content: { padding: 20, paddingBottom: 40 },
   infoCard: { padding: 25, borderRadius: 15, alignItems: 'center', elevation: 2, marginBottom: 20 },
@@ -201,6 +273,9 @@ const styles = StyleSheet.create({
   infoDesc: { textAlign: 'center', fontSize: 14, lineHeight: 22 },
   userEmail: { marginTop: 15, fontSize: 13, fontWeight: 'bold', fontStyle: 'italic' },
   versionText: { marginTop: 5, fontSize: 12, fontStyle: 'italic' },
+  
+  switchCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderRadius: 15, elevation: 2, marginBottom: 20, borderWidth: 1 },
+  
   themeToggleBtn: { backgroundColor: '#4154f1', paddingVertical: 12, paddingHorizontal: 25, borderRadius: 10 },
   themeToggleText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
   

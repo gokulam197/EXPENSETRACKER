@@ -14,16 +14,15 @@ export default function BookDetailsScreen() {
   const { isDarkMode } = useAppTheme();
 
   // --- PREMIUM FINTECH COLOR PALETTE ---
-  const themeContainer = isDarkMode ? '#0F172A' : '#F3F4F6'; // Slate Dark vs Soft Gray
-  const themeCard = isDarkMode ? '#1E293B' : '#FFFFFF'; // Elevated Slate vs White
-  const themeText = isDarkMode ? '#F9FAFB' : '#111827'; // Crisp White vs Deep Black
-  const themeSubText = isDarkMode ? '#9CA3AF' : '#6B7280'; // Muted Gray
-  const themeBorder = isDarkMode ? '#334155' : '#E5E7EB'; 
-  const themeChip = isDarkMode ? '#334155' : '#E5E7EB';
+  const themeContainer = isDarkMode ? '#0F172A' : '#F8FAFC';
+  const themeCard = isDarkMode ? '#1E293B' : '#FFFFFF';
+  const themeText = isDarkMode ? '#F9FAFB' : '#0F172A';
+  const themeSubText = isDarkMode ? '#9CA3AF' : '#64748B';
+  const themeBorder = isDarkMode ? '#334155' : '#E2E8F0'; 
+  const themeChip = isDarkMode ? '#334155' : '#E2E8F0';
 
-  // Dynamic Income & Expense colors for better Dark Mode readability
-  const colorIncome = isDarkMode ? '#34D399' : '#10B981'; // Soft Mint in Dark, Emerald in Light
-  const colorExpense = isDarkMode ? '#F87171' : '#EF4444'; // Soft Rose in Dark, Red in Light
+  const colorIncome = isDarkMode ? '#34D399' : '#059669';
+  const colorExpense = isDarkMode ? '#F87171' : '#DC2626';
   const brandPrimary = '#4154f1';
 
   const { id } = useLocalSearchParams();
@@ -34,10 +33,15 @@ export default function BookDetailsScreen() {
   const [filteredTransactions, setFilteredTransactions] = useState<any[]>([]); 
   const [netBalance, setNetBalance] = useState(0);
   
+  // --- BUDGET STATE ---
+  const [monthlyBudget, setMonthlyBudget] = useState(0);
+  const [monthlyExpense, setMonthlyExpense] = useState(0);
+  const [budgetModalVisible, setBudgetModalVisible] = useState(false);
+  const [newBudgetValue, setNewBudgetValue] = useState('');
+
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [categories, setCategories] = useState(['All']);
 
-  // Rename Book Modal State
   const [renameModalVisible, setRenameModalVisible] = useState(false);
   const [newBookName, setNewBookName] = useState('');
 
@@ -61,6 +65,8 @@ export default function BookDetailsScreen() {
           return;
         }
         setBookName(bookSnap.data().name);
+        // Fetch saved budget
+        setMonthlyBudget(bookSnap.data().budget || 0); 
       }
 
       const q = query(collection(db, 'transactions'), where("book_id", "==", id as string));
@@ -81,11 +87,25 @@ export default function BookDetailsScreen() {
       setCategories(uniqueCats as string[]);
 
       let balance = 0;
+      let expThisMonth = 0;
+      
+      const currentDate = new Date();
+      const currentMonth = currentDate.toLocaleDateString('en-US', { month: 'short' });
+      const currentYear = currentDate.getFullYear().toString();
+
       txData.forEach((tx: any) => {
-        if (tx.type === 'Income') balance += tx.amount;
-        else balance -= tx.amount;
+        if (tx.type === 'Income') {
+          balance += tx.amount;
+        } else {
+          balance -= tx.amount;
+          // Calculate this month's total expense for the budget
+          if (tx.date.includes(currentMonth) && tx.date.includes(currentYear)) {
+            expThisMonth += tx.amount;
+          }
+        }
       });
       setNetBalance(balance);
+      setMonthlyExpense(expThisMonth);
       
     } catch (error) {
       console.error("Firebase Fetch Details Error:", error);
@@ -134,12 +154,30 @@ export default function BookDetailsScreen() {
     }
   };
 
+  // --- SAVE BUDGET FUNCTION ---
+  const handleSaveBudget = async () => {
+    const parsedBudget = parseFloat(newBudgetValue);
+    if (isNaN(parsedBudget)) {
+      Alert.alert('Error', 'Proper aayi oru amount kodukkuka!');
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'books', id as string), {
+        budget: parsedBudget
+      });
+      setMonthlyBudget(parsedBudget);
+      setBudgetModalVisible(false);
+      setNewBudgetValue('');
+    } catch (error) {
+      Alert.alert('Error', 'Budget save cheyyan pattiyilla!');
+    }
+  };
+
   const exportToPDF = async () => {
     if (allTransactions.length === 0) {
       Alert.alert('No Data', 'Export cheyyan transactions onnumilla!');
       return;
     }
-
     try {
       const totalInc = allTransactions.filter(t => t.type === 'Income').reduce((acc, curr) => acc + curr.amount, 0);
       const totalExp = allTransactions.filter(t => t.type === 'Expense').reduce((acc, curr) => acc + curr.amount, 0);
@@ -149,7 +187,6 @@ export default function BookDetailsScreen() {
           <body style="font-family: Helvetica, Arial, sans-serif; padding: 20px; color: #333;">
             <h1 style="text-align: center; color: ${brandPrimary}; text-transform: uppercase;">${bookName} - REPORT</h1>
             <p style="text-align: center; color: #666;">Generated on: ${new Date().toLocaleDateString()}</p>
-            
             <div style="display: flex; justify-content: space-between; margin-top: 30px; margin-bottom: 30px; background: #f4f6f8; padding: 20px; border-radius: 12px;">
               <div style="text-align: center;">
                 <p style="margin: 0; color: #666; font-size: 14px;">Total Income</p>
@@ -164,7 +201,6 @@ export default function BookDetailsScreen() {
                 <h2 style="margin: 5px 0 0; color: ${netBalance >= 0 ? brandPrimary : '#EF4444'};">₹${Math.abs(netBalance).toFixed(2)}</h2>
               </div>
             </div>
-
             <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
               <thead>
                 <tr style="background-color: ${brandPrimary}; color: white; text-align: left;">
@@ -187,24 +223,27 @@ export default function BookDetailsScreen() {
                 `).join('')}
               </tbody>
             </table>
-            
-            <p style="text-align: center; margin-top: 50px; color: #aaa; font-size: 12px;">Created via Expense Tracker App</p>
           </body>
         </html>
       `;
 
       const { uri } = await Print.printToFileAsync({ html: htmlContent });
-      
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
       } else {
-        Alert.alert('Error', 'Sharing not available on this device');
+        Alert.alert('Error', 'Sharing not available');
       }
     } catch (error) {
-      console.error("PDF Export Error:", error);
       Alert.alert('Error', 'PDF generate cheyyan pattiyilla!');
     }
   };
+
+  // Budget Progress Calculation
+  let budgetProgress = 0;
+  if (monthlyBudget > 0) {
+    budgetProgress = (monthlyExpense / monthlyBudget) * 100;
+  }
+  const isOverBudget = monthlyExpense > monthlyBudget;
 
   return (
     <View style={[styles.container, { backgroundColor: themeContainer }]}>
@@ -218,9 +257,15 @@ export default function BookDetailsScreen() {
             <FontAwesome name="pencil" size={16} color="#e0e0e0" />
           </TouchableOpacity>
         </View>
-        <TouchableOpacity onPress={exportToPDF} style={styles.downloadBtn}>
-          <FontAwesome name="file-pdf-o" size={20} color="#fff" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row' }}>
+          {/* BUDGET SETTINGS ICON */}
+          <TouchableOpacity onPress={() => { setNewBudgetValue(monthlyBudget ? monthlyBudget.toString() : ''); setBudgetModalVisible(true); }} style={[styles.downloadBtn, { marginRight: 10 }]}>
+            <FontAwesome name="bullseye" size={22} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={exportToPDF} style={styles.downloadBtn}>
+            <FontAwesome name="file-pdf-o" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={[styles.balanceCard, { backgroundColor: themeCard, borderColor: themeBorder }]}>
@@ -228,6 +273,24 @@ export default function BookDetailsScreen() {
         <Text style={[styles.balanceAmount, { color: netBalance >= 0 ? colorIncome : colorExpense }]}>
           ₹{Math.abs(netBalance).toLocaleString('en-IN', { minimumFractionDigits: 2 })} {netBalance >= 0 ? '' : '(Dr)'}
         </Text>
+        
+        {/* --- BUDGET PROGRESS BAR SECTION --- */}
+        {monthlyBudget > 0 && (
+          <View style={styles.budgetContainer}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
+              <Text style={{ fontSize: 12, color: themeSubText }}>Monthly Budget (₹{monthlyBudget})</Text>
+              <Text style={{ fontSize: 12, color: isOverBudget ? colorExpense : themeText, fontWeight: 'bold' }}>
+                ₹{monthlyExpense.toLocaleString('en-IN')} Spent
+              </Text>
+            </View>
+            <View style={[styles.progressBarBg, { backgroundColor: themeBorder }]}>
+              <View style={[styles.progressBarFill, { 
+                width: `${Math.min(budgetProgress, 100)}%`, 
+                backgroundColor: isOverBudget ? colorExpense : (budgetProgress > 80 ? '#F59E0B' : colorIncome) 
+              }]} />
+            </View>
+          </View>
+        )}
       </View>
 
       <View style={[styles.filterContainer, { backgroundColor: themeContainer, borderBottomColor: themeBorder }]}>
@@ -284,12 +347,12 @@ export default function BookDetailsScreen() {
         <TouchableOpacity 
           style={[styles.actionBtn, { backgroundColor: colorExpense }]} 
           onPress={() => router.push(`/book/addTx?bookId=${id}&type=Expense`)}>
-          <Text style={styles.actionText}>- GAVE ₹</Text>
+          <Text style={styles.actionText}>- CASH OUT ₹</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.actionBtn, { backgroundColor: colorIncome }]} 
           onPress={() => router.push(`/book/addTx?bookId=${id}&type=Income`)}>
-          <Text style={styles.actionText}>+ GOT ₹</Text>
+          <Text style={styles.actionText}>+ CASH IN ₹</Text>
         </TouchableOpacity>
       </View>
 
@@ -318,6 +381,35 @@ export default function BookDetailsScreen() {
         </View>
       </Modal>
 
+      {/* BUDGET MODAL */}
+      <Modal visible={budgetModalVisible} transparent={true} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: themeCard, borderColor: themeBorder }]}>
+            <Text style={[styles.modalTitle, { color: themeText }]}>Set Monthly Budget</Text>
+            <Text style={{ color: themeSubText, marginBottom: 15, fontSize: 13 }}>
+              Set a limit to track your expenses for this month. Put 0 to remove the budget.
+            </Text>
+            <TextInput 
+              style={[styles.input, { color: themeText, borderColor: themeBorder, backgroundColor: themeContainer }]} 
+              placeholder="e.g. 5000" 
+              placeholderTextColor={themeSubText}
+              keyboardType="numeric"
+              value={newBudgetValue} 
+              onChangeText={setNewBudgetValue} 
+              autoFocus={true} 
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity onPress={() => setBudgetModalVisible(false)} style={styles.cancelBtn}>
+                <Text style={[styles.cancelBtnText, { color: themeSubText }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleSaveBudget} style={[styles.saveBtn, { backgroundColor: brandPrimary }]}>
+                <Text style={styles.saveBtnText}>Set Budget</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -334,6 +426,10 @@ const styles = StyleSheet.create({
   balanceLabel: { fontSize: 14, marginBottom: 8, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
   balanceAmount: { fontSize: 32, fontWeight: '800' },
   
+  budgetContainer: { width: '100%', marginTop: 20, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#E2E8F0' },
+  progressBarBg: { height: 8, width: '100%', borderRadius: 4, overflow: 'hidden' },
+  progressBarFill: { height: '100%', borderRadius: 4 },
+
   filterContainer: { paddingVertical: 12, borderBottomWidth: 1 },
   filterScroll: { paddingHorizontal: 15, gap: 10 },
   filterChip: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
@@ -357,7 +453,7 @@ const styles = StyleSheet.create({
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { width: '85%', borderRadius: 16, padding: 25, borderWidth: 1, elevation: 10 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 5 },
   input: { borderWidth: 1, padding: 15, borderRadius: 10, marginBottom: 25, fontSize: 16 },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 15 },
   cancelBtn: { paddingVertical: 12, paddingHorizontal: 15 },

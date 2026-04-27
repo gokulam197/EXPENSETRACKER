@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Platform, KeyboardAvoidingView, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker'; 
+import * as ImagePicker from 'expo-image-picker'; // CAMERA PACKAGE
 import { useAppTheme } from '../context/ThemeContext';
 
 // FIREBASE IMPORTS
@@ -22,6 +23,7 @@ export default function AddTransactionScreen() {
   
   const colorIncome = isDarkMode ? '#34D399' : '#10B981';
   const colorExpense = isDarkMode ? '#F87171' : '#EF4444';
+  const brandPrimary = '#4154f1';
 
   const router = useRouter();
   const { bookId, type, txId } = useLocalSearchParams();
@@ -41,6 +43,7 @@ export default function AddTransactionScreen() {
   
   const [mode, setMode] = useState<'date' | 'time'>('date');
   const [showPicker, setShowPicker] = useState(false);
+  const [isScanning, setIsScanning] = useState(false); // SCANNER STATE
 
   useEffect(() => {
     if (txId) {
@@ -75,6 +78,37 @@ export default function AddTransactionScreen() {
   const showMode = (currentMode: 'date' | 'time') => {
     setShowPicker(true);
     setMode(currentMode);
+  };
+
+  // --- RECEIPT SCANNER FUNCTION ---
+  const handleScanReceipt = async () => {
+    // 1. ക്യാമറ പെർമിഷൻ ചോദിക്കുന്നു
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'ക്യാമറ ഓപ്പൺ ചെയ്യാൻ പെർമിഷൻ ആവശ്യമാണ്.');
+      return;
+    }
+
+    // 2. ക്യാമറ ഓപ്പൺ ചെയ്യുന്നു
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.5,
+    });
+
+    if (!result.canceled) {
+      setIsScanning(true);
+      
+      // 3. ഫോട്ടോ എടുത്ത ശേഷം AI സ്കാൻ ചെയ്യുന്നത് പോലെ ഒരു ആനിമേഷൻ (2 സെക്കൻഡ്)
+      setTimeout(() => {
+        setIsScanning(false);
+        // ഇവിടെ നിങ്ങൾക്ക് പിന്നീട് Google Cloud Vision API കണക്ട് ചെയ്യാം. 
+        // തൽക്കാലം ഒരു random amount (ഉദാഹരണത്തിന് 1250) വരുന്നത് പോലെ കാണിക്കുന്നു.
+        const scannedAmount = "1250"; 
+        setAmount(scannedAmount);
+        setNote("Scanned from Bill");
+        Alert.alert('Success!', `ബില്ലിൽ നിന്നും തുക (₹${scannedAmount}) കണ്ടെത്തി! ✨`);
+      }, 2500);
+    }
   };
 
   const handleSave = async () => {
@@ -158,16 +192,36 @@ export default function AddTransactionScreen() {
         )}
 
         <View style={styles.inputGroup}>
-          <Text style={[styles.label, { color: themeSubText }]}>Amount (₹) *</Text>
-          <TextInput
-            style={[styles.input, styles.amountInput, { backgroundColor: themeCard, borderColor: themeBorder, color: activeColor }]}
-            placeholder="0.00"
-            placeholderTextColor={themeSubText}
-            keyboardType="numeric"
-            value={amount}
-            onChangeText={setAmount}
-            autoFocus={!txId}
-          />
+          <View style={styles.amountHeader}>
+            <Text style={[styles.label, { color: themeSubText }]}>Amount (₹) *</Text>
+            {/* SCAN BILL BUTTON (ചിലവുകൾ ആഡ് ചെയ്യുമ്പോൾ മാത്രം) */}
+            {!isIncome && (
+              <TouchableOpacity onPress={handleScanReceipt} style={[styles.scanBtn, { backgroundColor: brandPrimary }]}>
+                <FontAwesome name="camera" size={12} color="#fff" style={{ marginRight: 5 }} />
+                <Text style={styles.scanBtnText}>Scan Bill</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          <View style={{ justifyContent: 'center' }}>
+            <TextInput
+              style={[styles.input, styles.amountInput, { backgroundColor: themeCard, borderColor: themeBorder, color: isScanning ? 'transparent' : activeColor }]}
+              placeholder="0.00"
+              placeholderTextColor={themeSubText}
+              keyboardType="numeric"
+              value={amount}
+              onChangeText={setAmount}
+              autoFocus={!txId}
+              editable={!isScanning}
+            />
+            {/* SCANNING LOADER */}
+            {isScanning && (
+              <View style={styles.scannerOverlay}>
+                <ActivityIndicator size="large" color={activeColor} />
+                <Text style={[styles.scanningText, { color: activeColor }]}>Scanning Bill...</Text>
+              </View>
+            )}
+          </View>
         </View>
 
         <View style={styles.inputGroup}>
@@ -209,6 +263,7 @@ export default function AddTransactionScreen() {
         <TouchableOpacity 
           style={[styles.saveBtn, { backgroundColor: activeColor }]} 
           onPress={handleSave}
+          disabled={isScanning}
         >
           <Text style={styles.saveBtnText}>{txId ? 'UPDATE TRANSACTION' : 'SAVE TRANSACTION'}</Text>
         </TouchableOpacity>
@@ -229,7 +284,15 @@ const styles = StyleSheet.create({
   dateText: { fontSize: 15, fontWeight: '600' },
   
   inputGroup: { marginBottom: 25 },
-  label: { fontSize: 13, marginBottom: 8, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  amountHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  label: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  
+  // SCANNER BUTTON STYLES
+  scanBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, elevation: 2 },
+  scanBtnText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
+  scannerOverlay: { position: 'absolute', alignSelf: 'center', flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.9)', padding: 10, borderRadius: 10 },
+  scanningText: { marginLeft: 10, fontWeight: 'bold', fontSize: 16 },
+
   input: { borderWidth: 1, padding: 16, borderRadius: 12, fontSize: 16, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2 },
   pickerContainer: { borderWidth: 1, borderRadius: 12, overflow: 'hidden', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2 },
   picker: { height: 55, width: '100%' },

@@ -3,8 +3,11 @@ import { ActivityIndicator, View } from 'react-native';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import * as Notifications from 'expo-notifications'; // PUSH NOTIFICATION IMPORT
+import * as Notifications from 'expo-notifications'; 
 import 'react-native-reanimated';
+
+// --- LANGUAGE IMPORT ---
+import '../locales/i18n'; 
 
 import { AppThemeProvider, useAppTheme } from './context/ThemeContext';
 import { initDB } from '../database/db'; 

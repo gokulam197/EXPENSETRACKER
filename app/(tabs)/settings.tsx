@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { View, Share, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView, Linking, Switch, Platform } from 'react-native';
+import { View, Share, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView, Linking, Switch, Platform, Modal } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import * as Notifications from 'expo-notifications'; // IMPORT EXPO NOTIFICATIONS
+import * as Notifications from 'expo-notifications'; 
+import { useTranslation } from 'react-i18next'; // LANGUAGE HOOK
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // FIREBASE IMPORTS
 import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
@@ -14,6 +16,10 @@ import { useAppTheme } from '../context/ThemeContext';
 export default function SettingsScreen() {
   const router = useRouter();
   
+  // LANGUAGE SETUP
+  const { t, i18n } = useTranslation();
+  const [langModalVisible, setLangModalVisible] = useState(false);
+
   const { isDarkMode, toggleTheme } = useAppTheme();
 
   // DYNAMIC COLORS
@@ -27,13 +33,10 @@ export default function SettingsScreen() {
   const [feedback, setFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
-  
-  // REMINDER STATE
   const [reminderEnabled, setReminderEnabled] = useState(false);
 
   const CURRENT_APP_VERSION = "1.0.0";
 
-  // --- CHECK IF REMINDER IS ALREADY ON ---
   useEffect(() => {
     const checkNotificationStatus = async () => {
       const scheduled = await Notifications.getAllScheduledNotificationsAsync();
@@ -42,7 +45,12 @@ export default function SettingsScreen() {
     checkNotificationStatus();
   }, []);
 
-  // --- TOGGLE DAILY REMINDER FUNCTION (FIXED) ---
+  const changeLanguage = async (lng: string) => {
+    i18n.changeLanguage(lng);
+    await AsyncStorage.setItem('appLanguage', lng);
+    setLangModalVisible(false);
+  };
+
   const toggleReminder = async (value: boolean) => {
     if (value) {
       const { status } = await Notifications.requestPermissionsAsync();
@@ -50,9 +58,7 @@ export default function SettingsScreen() {
         Alert.alert('Permission Denied', 'Notification enable cheyyan permission aavashyamanu.');
         return;
       }
-      
       try {
-        // ANDROID 8.0+ നോട്ടിഫിക്കേഷൻ വരാൻ ചാനൽ ഉണ്ടാക്കുന്നു
         if (Platform.OS === 'android') {
           await Notifications.setNotificationChannelAsync('daily-reminder', {
             name: 'Daily Reminder',
@@ -60,23 +66,20 @@ export default function SettingsScreen() {
             sound: 'default',
           });
         }
-
-        // SCHEDULE DAILY NOTIFICATION AT 9:00 PM
         await Notifications.scheduleNotificationAsync({
           content: {
             title: "Daily Expense Tracker 💸",
-            body: "Innathe chilavukal add cheytho?",
+            body: "Innathe chilavukal add cheytho? Marakkathe add cheyyu!",
             sound: true,
           },
           trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.DAILY, // <-- FIXED THE TYPE ERROR
+            type: Notifications.SchedulableTriggerInputTypes.DAILY, 
             hour: 21,
             minute: 0,
             repeats: true,
-            channelId: Platform.OS === 'android' ? 'daily-reminder' : undefined, // <-- FIXED CHANNEL ID
+            channelId: Platform.OS === 'android' ? 'daily-reminder' : undefined, 
           },
         });
-        
         setReminderEnabled(true);
         Alert.alert('Reminder Set', 'Daily reminder scheduled for 9:00 PM! 🌙');
       } catch (error) {
@@ -84,7 +87,6 @@ export default function SettingsScreen() {
         Alert.alert('Error', 'Notification schedule cheyyan pattiyilla.');
       }
     } else {
-      // CANCEL NOTIFICATIONS
       await Notifications.cancelAllScheduledNotificationsAsync();
       setReminderEnabled(false);
       Alert.alert('Reminder Off', 'Daily reminders turned off.');
@@ -174,7 +176,7 @@ export default function SettingsScreen() {
   return (
     <ScrollView style={[styles.container, { backgroundColor: themeContainer }]}>
       <View style={[styles.header, { backgroundColor: themeCard, borderBottomColor: themeBorder }]}>
-        <Text style={[styles.headerTitle, { color: themeText }]}>Settings & Info</Text>
+        <Text style={[styles.headerTitle, { color: themeText }]}>{t('settings')}</Text>
       </View>
 
       <View style={styles.content}>
@@ -204,11 +206,41 @@ export default function SettingsScreen() {
           />
         </View>
 
-        <TouchableOpacity 
-          style={[styles.updateBtn, { backgroundColor: themeCard, borderColor: themeBorder }]} 
-          onPress={checkForUpdates} 
-          disabled={isCheckingUpdate}
-        >
+        {/* CHANGE LANGUAGE BUTTON */}
+        <TouchableOpacity style={[styles.updateBtn, { backgroundColor: themeCard, borderColor: themeBorder }]} onPress={() => setLangModalVisible(true)}>
+          <FontAwesome name="language" size={22} color="#9c27b0" style={{ marginRight: 10 }} />
+          <Text style={[styles.updateBtnText, { color: themeText }]}>{t('language')}</Text>
+        </TouchableOpacity>
+
+        {/* LANGUAGE MODAL */}
+        <Modal visible={langModalVisible} transparent={true} animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: themeCard, borderColor: themeBorder, borderWidth: 1 }]}>
+              <Text style={[styles.infoTitle, { color: themeText, marginBottom: 20 }]}>Select Language</Text>
+              
+              <TouchableOpacity style={styles.langOption} onPress={() => changeLanguage('en')}>
+                <Text style={{ color: themeText, fontSize: 16, fontWeight: i18n.language === 'en' ? 'bold' : 'normal' }}>English (EN)</Text>
+                {i18n.language === 'en' && <FontAwesome name="check" color="#4154f1" size={18} />}
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.langOption} onPress={() => changeLanguage('ml')}>
+                <Text style={{ color: themeText, fontSize: 16, fontWeight: i18n.language === 'ml' ? 'bold' : 'normal' }}>മലയാളം (ML)</Text>
+                {i18n.language === 'ml' && <FontAwesome name="check" color="#4154f1" size={18} />}
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.langOption} onPress={() => changeLanguage('mg')}>
+                <Text style={{ color: themeText, fontSize: 16, fontWeight: i18n.language === 'mg' ? 'bold' : 'normal' }}>Manglish (MG)</Text>
+                {i18n.language === 'mg' && <FontAwesome name="check" color="#4154f1" size={18} />}
+              </TouchableOpacity>
+
+              <TouchableOpacity style={{ marginTop: 20, alignItems: 'center' }} onPress={() => setLangModalVisible(false)}>
+                <Text style={{ color: '#f44336', fontWeight: 'bold' }}>{t('cancel')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        <TouchableOpacity style={[styles.updateBtn, { backgroundColor: themeCard, borderColor: themeBorder }]} onPress={checkForUpdates} disabled={isCheckingUpdate}>
           <FontAwesome name="refresh" size={20} color="#ff9800" style={{ marginRight: 10 }} />
           <Text style={[styles.updateBtnText, { color: themeText }]}>
             {isCheckingUpdate ? "Checking..." : "Check for Updates"}
@@ -217,7 +249,7 @@ export default function SettingsScreen() {
 
         <View style={[styles.infoCard, { backgroundColor: themeCard, borderColor: themeBorder, borderWidth: 1 }]}>
           <FontAwesome name={isDarkMode ? "moon-o" : "sun-o"} size={35} color={isDarkMode ? "#fdd835" : "#ff9800"} style={{ marginBottom: 10 }} />
-          <Text style={[styles.infoTitle, { color: themeText }]}>Appearance</Text>
+          <Text style={[styles.infoTitle, { color: themeText }]}>{t('appearance')}</Text>
           <Text style={[styles.infoDesc, { color: themeSubText, marginBottom: 15 }]}>
             Change your app theme manually.
           </Text>
@@ -230,14 +262,14 @@ export default function SettingsScreen() {
 
         <TouchableOpacity style={[styles.infoCard, { backgroundColor: themeCard, borderColor: themeBorder, borderWidth: 1 }]} onPress={onShare}>
           <FontAwesome name="share-alt" size={30} color="#4caf50" style={{ marginBottom: 10 }} />
-          <Text style={[styles.infoTitle, { color: themeText }]}>Invite Friends</Text>
+          <Text style={[styles.infoTitle, { color: themeText }]}>{t('share_app')}</Text>
           <Text style={[styles.infoDesc, { color: themeSubText }]}>
             Ee app ningalkku upakarapradhamayittu thonniyengil koottukaarkkum share cheyyuka!
           </Text>
         </TouchableOpacity>
 
         <View style={[styles.feedbackSection, { backgroundColor: themeCard, borderColor: themeBorder, borderWidth: 1 }]}>
-          <Text style={[styles.sectionTitle, { color: themeText }]}>Send Feedback</Text>
+          <Text style={[styles.sectionTitle, { color: themeText }]}>{t('send_feedback')}</Text>
           <TextInput
             style={[styles.feedbackInput, { color: themeText, borderColor: themeBorder, backgroundColor: inputBg }]}
             placeholder="Type your suggestions, bugs..."
@@ -256,7 +288,7 @@ export default function SettingsScreen() {
 
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <FontAwesome name="sign-out" size={20} color="#fff" style={{ marginRight: 10 }} />
-          <Text style={styles.logoutBtnText}>Logout</Text>
+          <Text style={styles.logoutBtnText}>{t('logout')}</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -281,6 +313,10 @@ const styles = StyleSheet.create({
   
   updateBtn: { flexDirection: 'row', padding: 18, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1, elevation: 2, marginBottom: 20 },
   updateBtnText: { fontWeight: 'bold', fontSize: 16 },
+
+  langOption: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 15, borderBottomWidth: 0.5, borderBottomColor: '#ddd' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { width: '80%', borderRadius: 15, padding: 25, elevation: 5 },
 
   feedbackSection: { width: '100%', padding: 20, borderRadius: 15, elevation: 2, marginBottom: 20 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },

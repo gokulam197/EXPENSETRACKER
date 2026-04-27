@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { useTranslation } from 'react-i18next'; // LANGUAGE HOOK
 import { useAppTheme } from '../context/ThemeContext';
 
 // FIREBASE IMPORTS
@@ -12,8 +13,8 @@ import { db, auth } from '../../database/firebaseConfig';
 
 export default function BookDetailsScreen() {
   const { isDarkMode } = useAppTheme();
+  const { t } = useTranslation(); // INIT TRANSLATION
 
-  // --- PREMIUM FINTECH COLOR PALETTE ---
   const themeContainer = isDarkMode ? '#0F172A' : '#F8FAFC';
   const themeCard = isDarkMode ? '#1E293B' : '#FFFFFF';
   const themeText = isDarkMode ? '#F9FAFB' : '#0F172A';
@@ -33,7 +34,6 @@ export default function BookDetailsScreen() {
   const [filteredTransactions, setFilteredTransactions] = useState<any[]>([]); 
   const [netBalance, setNetBalance] = useState(0);
   
-  // --- BUDGET STATE ---
   const [monthlyBudget, setMonthlyBudget] = useState(0);
   const [monthlyExpense, setMonthlyExpense] = useState(0);
   const [budgetModalVisible, setBudgetModalVisible] = useState(false);
@@ -60,12 +60,11 @@ export default function BookDetailsScreen() {
       const bookSnap = await getDoc(bookRef);
       if (bookSnap.exists()) {
         if (bookSnap.data().userId !== userUid) {
-          Alert.alert("Unauthorized", "Ithu ningalude book alla!");
+          Alert.alert("Unauthorized");
           router.back();
           return;
         }
         setBookName(bookSnap.data().name);
-        // Fetch saved budget
         setMonthlyBudget(bookSnap.data().budget || 0); 
       }
 
@@ -98,7 +97,6 @@ export default function BookDetailsScreen() {
           balance += tx.amount;
         } else {
           balance -= tx.amount;
-          // Calculate this month's total expense for the budget
           if (tx.date.includes(currentMonth) && tx.date.includes(currentYear)) {
             expThisMonth += tx.amount;
           }
@@ -108,7 +106,7 @@ export default function BookDetailsScreen() {
       setMonthlyExpense(expThisMonth);
       
     } catch (error) {
-      console.error("Firebase Fetch Details Error:", error);
+      console.error("Fetch Error:", error);
     }
   };
 
@@ -123,14 +121,14 @@ export default function BookDetailsScreen() {
   };
 
   const handleDelete = (txId: string) => {
-    Alert.alert("Delete", "Are you sure you want to delete this transaction?", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert("Delete", "Delete this transaction?", [
+      { text: t('cancel'), style: "cancel" },
       { text: "Delete", style: "destructive", onPress: async () => {
           try {
             await deleteDoc(doc(db, 'transactions', txId));
             fetchBookDetails(); 
           } catch (error) {
-            console.error("Firebase Delete Error", error);
+            console.error("Delete Error", error);
           }
         } 
       }
@@ -138,10 +136,7 @@ export default function BookDetailsScreen() {
   };
 
   const handleRenameBook = async () => {
-    if (!newBookName.trim()) {
-      Alert.alert('Error', 'Book name kodukkuka!');
-      return;
-    }
+    if (!newBookName.trim()) return;
     try {
       await updateDoc(doc(db, 'books', id as string), {
         name: newBookName,
@@ -150,34 +145,25 @@ export default function BookDetailsScreen() {
       setBookName(newBookName);
       setRenameModalVisible(false);
     } catch (error) {
-      Alert.alert('Error', 'Rename cheyyan pattiyilla!');
+      Alert.alert('Error', 'Failed to rename!');
     }
   };
 
-  // --- SAVE BUDGET FUNCTION ---
   const handleSaveBudget = async () => {
     const parsedBudget = parseFloat(newBudgetValue);
-    if (isNaN(parsedBudget)) {
-      Alert.alert('Error', 'Proper aayi oru amount kodukkuka!');
-      return;
-    }
+    if (isNaN(parsedBudget)) return;
     try {
-      await updateDoc(doc(db, 'books', id as string), {
-        budget: parsedBudget
-      });
+      await updateDoc(doc(db, 'books', id as string), { budget: parsedBudget });
       setMonthlyBudget(parsedBudget);
       setBudgetModalVisible(false);
       setNewBudgetValue('');
     } catch (error) {
-      Alert.alert('Error', 'Budget save cheyyan pattiyilla!');
+      Alert.alert('Error', 'Failed to save budget!');
     }
   };
 
   const exportToPDF = async () => {
-    if (allTransactions.length === 0) {
-      Alert.alert('No Data', 'Export cheyyan transactions onnumilla!');
-      return;
-    }
+    if (allTransactions.length === 0) return;
     try {
       const totalInc = allTransactions.filter(t => t.type === 'Income').reduce((acc, curr) => acc + curr.amount, 0);
       const totalExp = allTransactions.filter(t => t.type === 'Expense').reduce((acc, curr) => acc + curr.amount, 0);
@@ -230,15 +216,12 @@ export default function BookDetailsScreen() {
       const { uri } = await Print.printToFileAsync({ html: htmlContent });
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
-      } else {
-        Alert.alert('Error', 'Sharing not available');
       }
     } catch (error) {
-      Alert.alert('Error', 'PDF generate cheyyan pattiyilla!');
+      console.log(error);
     }
   };
 
-  // Budget Progress Calculation
   let budgetProgress = 0;
   if (monthlyBudget > 0) {
     budgetProgress = (monthlyExpense / monthlyBudget) * 100;
@@ -258,7 +241,6 @@ export default function BookDetailsScreen() {
           </TouchableOpacity>
         </View>
         <View style={{ flexDirection: 'row' }}>
-          {/* BUDGET SETTINGS ICON */}
           <TouchableOpacity onPress={() => { setNewBudgetValue(monthlyBudget ? monthlyBudget.toString() : ''); setBudgetModalVisible(true); }} style={[styles.downloadBtn, { marginRight: 10 }]}>
             <FontAwesome name="bullseye" size={22} color="#fff" />
           </TouchableOpacity>
@@ -269,12 +251,11 @@ export default function BookDetailsScreen() {
       </View>
 
       <View style={[styles.balanceCard, { backgroundColor: themeCard, borderColor: themeBorder }]}>
-        <Text style={[styles.balanceLabel, { color: themeSubText }]}>Net Balance</Text>
+        <Text style={[styles.balanceLabel, { color: themeSubText }]}>{t('net_balance')}</Text>
         <Text style={[styles.balanceAmount, { color: netBalance >= 0 ? colorIncome : colorExpense }]}>
           ₹{Math.abs(netBalance).toLocaleString('en-IN', { minimumFractionDigits: 2 })} {netBalance >= 0 ? '' : '(Dr)'}
         </Text>
         
-        {/* --- BUDGET PROGRESS BAR SECTION --- */}
         {monthlyBudget > 0 && (
           <View style={styles.budgetContainer}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
@@ -347,23 +328,22 @@ export default function BookDetailsScreen() {
         <TouchableOpacity 
           style={[styles.actionBtn, { backgroundColor: colorExpense }]} 
           onPress={() => router.push(`/book/addTx?bookId=${id}&type=Expense`)}>
-          <Text style={styles.actionText}>- CASH OUT ₹</Text>
+          <Text style={styles.actionText}>{t('gave')}</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.actionBtn, { backgroundColor: colorIncome }]} 
           onPress={() => router.push(`/book/addTx?bookId=${id}&type=Income`)}>
-          <Text style={styles.actionText}>+ CASH IN ₹</Text>
+          <Text style={styles.actionText}>{t('got')}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* RENAME BOOK MODAL */}
       <Modal visible={renameModalVisible} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: themeCard, borderColor: themeBorder }]}>
             <Text style={[styles.modalTitle, { color: themeText }]}>Rename Book</Text>
             <TextInput 
               style={[styles.input, { color: themeText, borderColor: themeBorder, backgroundColor: themeContainer }]} 
-              placeholder="Enter new name" 
+              placeholder={t('book_name')} 
               placeholderTextColor={themeSubText}
               value={newBookName} 
               onChangeText={setNewBookName} 
@@ -371,24 +351,20 @@ export default function BookDetailsScreen() {
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity onPress={() => setRenameModalVisible(false)} style={styles.cancelBtn}>
-                <Text style={[styles.cancelBtnText, { color: themeSubText }]}>Cancel</Text>
+                <Text style={[styles.cancelBtnText, { color: themeSubText }]}>{t('cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleRenameBook} style={[styles.saveBtn, { backgroundColor: brandPrimary }]}>
-                <Text style={styles.saveBtnText}>Update</Text>
+                <Text style={styles.saveBtnText}>{t('update')}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* BUDGET MODAL */}
       <Modal visible={budgetModalVisible} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: themeCard, borderColor: themeBorder }]}>
             <Text style={[styles.modalTitle, { color: themeText }]}>Set Monthly Budget</Text>
-            <Text style={{ color: themeSubText, marginBottom: 15, fontSize: 13 }}>
-              Set a limit to track your expenses for this month. Put 0 to remove the budget.
-            </Text>
             <TextInput 
               style={[styles.input, { color: themeText, borderColor: themeBorder, backgroundColor: themeContainer }]} 
               placeholder="e.g. 5000" 
@@ -400,20 +376,20 @@ export default function BookDetailsScreen() {
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity onPress={() => setBudgetModalVisible(false)} style={styles.cancelBtn}>
-                <Text style={[styles.cancelBtnText, { color: themeSubText }]}>Cancel</Text>
+                <Text style={[styles.cancelBtnText, { color: themeSubText }]}>{t('cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleSaveBudget} style={[styles.saveBtn, { backgroundColor: brandPrimary }]}>
-                <Text style={styles.saveBtnText}>Set Budget</Text>
+                <Text style={styles.saveBtnText}>{t('save')}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-
     </View>
   );
 }
 
+// ... [styles object remains exactly same]
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#4154f1', padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 40, paddingBottom: 25 },
@@ -421,36 +397,29 @@ const styles = StyleSheet.create({
   backButton: { marginRight: 15, padding: 5 },
   headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff', maxWidth: '75%' },
   downloadBtn: { padding: 8 },
-  
   balanceCard: { margin: 15, padding: 25, borderRadius: 16, alignItems: 'center', borderWidth: 1, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, marginTop: -20 },
   balanceLabel: { fontSize: 14, marginBottom: 8, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
   balanceAmount: { fontSize: 32, fontWeight: '800' },
-  
   budgetContainer: { width: '100%', marginTop: 20, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#E2E8F0' },
   progressBarBg: { height: 8, width: '100%', borderRadius: 4, overflow: 'hidden' },
   progressBarFill: { height: '100%', borderRadius: 4 },
-
   filterContainer: { paddingVertical: 12, borderBottomWidth: 1 },
   filterScroll: { paddingHorizontal: 15, gap: 10 },
   filterChip: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
   filterText: { fontWeight: '600', fontSize: 13 },
-  
   txCard: { flexDirection: 'row', justifyContent: 'space-between', padding: 16, borderRadius: 12, marginBottom: 12, borderWidth: 1, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3 },
   txLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   typeIndicator: { width: 4, height: '100%', borderRadius: 4, marginRight: 15 },
   categoryText: { fontSize: 16, fontWeight: '700', marginBottom: 2 },
   dateText: { fontSize: 12, fontWeight: '500' },
   noteText: { fontSize: 13, marginTop: 4, fontStyle: 'italic', maxWidth: '90%' },
-  
   txRight: { flexDirection: 'row', alignItems: 'center' },
   amountText: { fontSize: 17, fontWeight: '800', marginRight: 15 },
   deleteBtn: { padding: 8 },
   emptyText: { textAlign: 'center', marginTop: 40, fontSize: 15 },
-  
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', padding: 15, borderTopWidth: 1, gap: 15, paddingBottom: Platform.OS === 'ios' ? 30 : 15 },
   actionBtn: { flex: 1, paddingVertical: 16, borderRadius: 12, alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
   actionText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 1 },
-  
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { width: '85%', borderRadius: 16, padding: 25, borderWidth: 1, elevation: 10 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 5 },

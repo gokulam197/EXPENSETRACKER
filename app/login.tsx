@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, useColorScheme, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next'; // LANGUAGE HOOK
 
 // FIREBASE IMPORTS
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
@@ -11,8 +12,8 @@ export default function LoginScreen() {
   const router = useRouter();
   const systemTheme = useColorScheme();
   const isDarkMode = systemTheme === 'dark';
+  const { t } = useTranslation();
 
-  // DYNAMIC COLORS
   const themeContainer = isDarkMode ? '#121212' : '#f4f6f8';
   const themeCard = isDarkMode ? '#1e1e1e' : '#ffffff';
   const themeText = isDarkMode ? '#ffffff' : '#333333';
@@ -24,63 +25,56 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-// LOGIN FUNCTION
-const handleLogin = async () => {
-  if (!email || !password) {
-    Alert.alert('Error', 'Email-um Password-um kodukkuka!');
-    return;
-  }
-  setIsLoading(true);
-  try {
-    await signInWithEmailAndPassword(auth, email, password);
-    // വിജയകരമായി ലോഗിൻ ചെയ്താൽ നേരിട്ട് ഡാഷ്ബോർഡിലേക്ക് വിടുന്നു
-    router.replace('/(tabs)'); 
-  } catch (error: any) {
-    console.error("Login Error:", error.message);
-    Alert.alert('Login Failed', 'Email അല്ലെങ്കിൽ Password തെറ്റാണ്.');
-  } finally {
-    setIsLoading(false);
-  }
-};
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert(t('error'), t('err_email_pass'));
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      router.replace('/(tabs)'); 
+    } catch (error: any) {
+      Alert.alert('Login Failed', t('err_login'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  // SIGN UP FUNCTION
   const handleSignUp = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Email-um Password-um kodukkuka!');
+      Alert.alert(t('error'), t('err_email_pass'));
       return;
     }
     if (password.length < 6) {
-      Alert.alert('Error', 'Password kuranjathu 6 letters venam!');
+      Alert.alert(t('error'), t('err_pass_len'));
       return;
     }
     setIsLoading(true);
     try {
       await createUserWithEmailAndPassword(auth, email, password);
-      Alert.alert('Success!', 'Puthiya account create cheythu! Ini app use cheyyam.');
+      Alert.alert(t('success'), t('succ_acc'));
     } catch (error: any) {
-      console.error("Sign Up Error:", error.message);
       if (error.code === 'auth/email-already-in-use') {
-        Alert.alert('Error', 'Ee email already use cheythittundu. Login cheyyuka.');
+        Alert.alert(t('error'), t('err_email_in_use'));
       } else {
-        Alert.alert('Error', 'Account create cheyyan pattiyilla.');
+        Alert.alert(t('error'), t('err_acc_create'));
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  // FORGOT PASSWORD FUNCTION
   const handleForgotPassword = async () => {
     if (!email) {
-      Alert.alert('Email Required', 'Password reset link ayakkan aadyam Email box-il ningalude email id type cheyyuka!');
+      Alert.alert(t('notice'), t('req_email_reset'));
       return;
     }
     try {
       await sendPasswordResetEmail(auth, email);
-      Alert.alert('Link Sent!', 'Password reset cheyyanulla link ningalude email-lekku ayachittundu. Inbox check cheyyuka.');
+      Alert.alert('Link Sent!', t('succ_reset'));
     } catch (error: any) {
-      console.error("Reset Error:", error.message);
-      Alert.alert('Error', 'Password reset link ayakkan pattiyilla. Email id correct aano ennu check cheyyuka.');
+      Alert.alert(t('error'), t('err_reset'));
     }
   };
 
@@ -92,15 +86,15 @@ const handleLogin = async () => {
           <View style={styles.iconCircle}>
           <FontAwesome name="money" size={40} color="#fff" />
           </View>
-          <Text style={[styles.title, { color: themeText }]}>Expense Tracker</Text>
-          <Text style={[styles.subtitle, { color: themeSubText }]}>Sign in to sync your data</Text>
+          <Text style={[styles.title, { color: themeText }]}>{t('login_title')}</Text>
+          <Text style={[styles.subtitle, { color: themeSubText }]}>{t('login_sub')}</Text>
         </View>
 
         <View style={styles.inputContainer}>
           <FontAwesome name="envelope" size={20} color={themeSubText} style={styles.inputIcon} />
           <TextInput
             style={[styles.input, { color: themeText, backgroundColor: inputBg, borderColor: themeBorder }]}
-            placeholder="Email Address"
+            placeholder={t('email_ph')}
             placeholderTextColor={themeSubText}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -113,7 +107,7 @@ const handleLogin = async () => {
           <FontAwesome name="lock" size={24} color={themeSubText} style={styles.inputIcon} />
           <TextInput
             style={[styles.input, { color: themeText, backgroundColor: inputBg, borderColor: themeBorder }]}
-            placeholder="Password"
+            placeholder={t('pass_ph')}
             placeholderTextColor={themeSubText}
             secureTextEntry
             value={password}
@@ -121,9 +115,8 @@ const handleLogin = async () => {
           />
         </View>
 
-        {/* FORGOT PASSWORD BUTTON */}
         <TouchableOpacity style={styles.forgotBtn} onPress={handleForgotPassword}>
-          <Text style={styles.forgotBtnText}>Forgot Password?</Text>
+          <Text style={styles.forgotBtnText}>{t('forgot_pass')}</Text>
         </TouchableOpacity>
 
         {isLoading ? (
@@ -131,17 +124,17 @@ const handleLogin = async () => {
         ) : (
           <>
             <TouchableOpacity style={styles.loginBtn} onPress={handleLogin}>
-              <Text style={styles.loginBtnText}>Login</Text>
+              <Text style={styles.loginBtnText}>{t('login_btn')}</Text>
             </TouchableOpacity>
 
             <View style={styles.divider}>
               <View style={[styles.line, { backgroundColor: themeBorder }]} />
-              <Text style={[styles.orText, { color: themeSubText }]}>OR</Text>
+              <Text style={[styles.orText, { color: themeSubText }]}>{t('or')}</Text>
               <View style={[styles.line, { backgroundColor: themeBorder }]} />
             </View>
 
             <TouchableOpacity style={[styles.signupBtn, { borderColor: '#4154f1' }]} onPress={handleSignUp}>
-              <Text style={styles.signupBtnText}>Create New Account</Text>
+              <Text style={styles.signupBtnText}>{t('create_acc')}</Text>
             </TouchableOpacity>
           </>
         )}

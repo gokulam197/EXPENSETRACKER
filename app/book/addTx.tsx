@@ -5,16 +5,15 @@ import { FontAwesome } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker'; 
 import * as ImagePicker from 'expo-image-picker'; 
-import { useTranslation } from 'react-i18next'; // LANGUAGE HOOK
+import { useTranslation } from 'react-i18next'; 
 import { useAppTheme } from '../context/ThemeContext';
 
-// FIREBASE IMPORTS
 import { collection, addDoc, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../../database/firebaseConfig'; 
 
 export default function AddTransactionScreen() {
   const { isDarkMode } = useAppTheme();
-  const { t } = useTranslation(); // INIT TRANSLATION
+  const { t } = useTranslation(); 
 
   const themeContainer = isDarkMode ? '#0F172A' : '#F3F4F6';
   const themeCard = isDarkMode ? '#1E293B' : '#FFFFFF';
@@ -83,7 +82,7 @@ export default function AddTransactionScreen() {
   const handleScanReceipt = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Denied');
+      Alert.alert(t('error'), t('err_cam'));
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -98,14 +97,22 @@ export default function AddTransactionScreen() {
         const scannedAmount = "1250"; 
         setAmount(scannedAmount);
         setNote("Scanned from Bill");
+        Alert.alert(t('success'), t('succ_scan_msg'));
       }, 2500);
     }
   };
 
   const handleSave = async () => {
-    if (!amount) return;
+    if (!amount) {
+      Alert.alert(t('error'), t('err_amt_req'));
+      return;
+    }
     const userUid = auth.currentUser?.uid;
-    if (!userUid) return;
+    const userEmail = auth.currentUser?.email; // GET LOGGED IN USER EMAIL
+    if (!userUid) {
+      Alert.alert(t('error'), t('err_not_log'));
+      return;
+    }
 
     try {
       const dateOpts: any = { month: 'short', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' };
@@ -117,6 +124,7 @@ export default function AddTransactionScreen() {
         date: formattedDate,
         note: note,
         userId: userUid,
+        addedByEmail: userEmail // ADD THE EMAIL TO THE RECORD
       };
 
       if (txId) {
@@ -131,7 +139,7 @@ export default function AddTransactionScreen() {
       }
       router.back();
     } catch (error) {
-      console.error("Save Error:", error);
+      Alert.alert(t('error'), t('err_save_tx'));
     }
   };
 
@@ -174,11 +182,11 @@ export default function AddTransactionScreen() {
 
         <View style={styles.inputGroup}>
           <View style={styles.amountHeader}>
-            <Text style={[styles.label, { color: themeSubText }]}>Amount (₹) *</Text>
+            <Text style={[styles.label, { color: themeSubText }]}>{t('amt_label')}</Text>
             {!isIncome && (
               <TouchableOpacity onPress={handleScanReceipt} style={[styles.scanBtn, { backgroundColor: brandPrimary }]}>
                 <FontAwesome name="camera" size={12} color="#fff" style={{ marginRight: 5 }} />
-                <Text style={styles.scanBtnText}>Scan Bill</Text>
+                <Text style={styles.scanBtnText}>{t('scan_bill')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -196,14 +204,14 @@ export default function AddTransactionScreen() {
             {isScanning && (
               <View style={styles.scannerOverlay}>
                 <ActivityIndicator size="large" color={activeColor} />
-                <Text style={[styles.scanningText, { color: activeColor }]}>Scanning Bill...</Text>
+                <Text style={[styles.scanningText, { color: activeColor }]}>{t('scanning')}</Text>
               </View>
             )}
           </View>
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={[styles.label, { color: themeSubText }]}>Category</Text>
+          <Text style={[styles.label, { color: themeSubText }]}>{t('category')}</Text>
           <View style={[styles.pickerContainer, { backgroundColor: themeCard, borderColor: themeBorder }]}>
             <Picker
               key={isDarkMode ? 'dark' : 'light'} 
@@ -222,10 +230,10 @@ export default function AddTransactionScreen() {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={[styles.label, { color: themeSubText }]}>Remark</Text>
+          <Text style={[styles.label, { color: themeSubText }]}>{t('remark')}</Text>
           <TextInput
             style={[styles.input, styles.noteInput, { backgroundColor: themeCard, borderColor: themeBorder, color: themeText }]}
-            placeholder="Enter details here..."
+            placeholder={t('remark_ph')}
             placeholderTextColor={themeSubText}
             value={note}
             onChangeText={setNote}
@@ -233,14 +241,13 @@ export default function AddTransactionScreen() {
         </View>
 
         <TouchableOpacity style={[styles.saveBtn, { backgroundColor: activeColor }]} onPress={handleSave} disabled={isScanning}>
-          <Text style={styles.saveBtnText}>{txId ? t('update') : t('save')}</Text>
+          <Text style={styles.saveBtnText}>{txId ? t('update_tx') : t('save_tx')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-// ... [styles object remains exactly same]
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 40, paddingBottom: 25 },

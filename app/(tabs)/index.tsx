@@ -3,10 +3,9 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import { PieChart, LineChart } from 'react-native-chart-kit';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, TextInput, Alert, Dimensions, Platform } from 'react-native';
-import { useTranslation } from 'react-i18next'; // LANGUAGE HOOK
+import { useTranslation } from 'react-i18next'; 
 import { useAppTheme } from '../context/ThemeContext';
 
-// FIREBASE IMPORTS
 import { collection, getDocs, addDoc, query, where, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../../database/firebaseConfig';
 
@@ -14,9 +13,8 @@ const screenWidth = Dimensions.get('window').width;
 
 export default function HomeScreen() {
   const { isDarkMode } = useAppTheme();
-  const { t } = useTranslation(); // INIT TRANSLATION
+  const { t } = useTranslation(); 
 
-  // --- PREMIUM FINTECH COLOR PALETTE ---
   const themeContainer = isDarkMode ? '#0F172A' : '#F8FAFC';
   const themeCard = isDarkMode ? '#1E293B' : '#FFFFFF';
   const themeText = isDarkMode ? '#F9FAFB' : '#0F172A';
@@ -36,7 +34,7 @@ export default function HomeScreen() {
   const [newBookName, setNewBookName] = useState('');
   
   const [actionModalVisible, setActionModalVisible] = useState(false);
-  const [selectedBook, setSelectedBook] = useState<{id: string, name: string} | null>(null);
+  const [selectedBook, setSelectedBook] = useState<{id: string, name: string, isOwner: boolean} | null>(null);
   
   const [renameModalVisible, setRenameModalVisible] = useState(false);
   const [editBookName, setEditBookName] = useState('');
@@ -56,24 +54,29 @@ export default function HomeScreen() {
 
   const fetchDashboardData = async () => {
     const userUid = auth.currentUser?.uid;
-    if (!userUid) return;
+    const userEmail = auth.currentUser?.email;
+    if (!userUid || !userEmail) return;
 
     try {
-      const qBooks = query(collection(db, 'books'), where("userId", "==", userUid));
-      const booksSnapshot = await getDocs(qBooks);
-      let booksList = booksSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as any[];
-
+      const qOwner = query(collection(db, 'books'), where("userId", "==", userUid));
+      const qShared = query(collection(db, 'books'), where("sharedWith", "array-contains", userEmail));
+      
+      const [ownerSnap, sharedSnap] = await Promise.all([getDocs(qOwner), getDocs(qShared)]);
+      
+      const booksMap = new Map();
+      ownerSnap.docs.forEach(doc => booksMap.set(doc.id, { id: doc.id, ...doc.data(), isOwner: true }));
+      sharedSnap.docs.forEach(doc => booksMap.set(doc.id, { id: doc.id, ...doc.data(), isOwner: false }));
+      
+      let booksList = Array.from(booksMap.values());
       booksList.sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0));
 
-      const qTx = query(collection(db, 'transactions'), where("userId", "==", userUid));
-      const txSnapshot = await getDocs(qTx);
-      const txList = txSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as any[];
+      const allTxPromises = booksList.map(b => getDocs(query(collection(db, 'transactions'), where("book_id", "==", b.id))));
+      const allTxSnaps = await Promise.all(allTxPromises);
+      
+      let txList: any[] = [];
+      allTxSnaps.forEach(snap => {
+        snap.docs.forEach(doc => txList.push({ id: doc.id, ...doc.data() }));
+      });
 
       const booksWithBalance = booksList.map(book => {
         const bookTxs = txList.filter(tx => tx.book_id === book.id);
@@ -159,7 +162,7 @@ export default function HomeScreen() {
 
   const handleAddBook = async () => {
     if (!newBookName.trim()) {
-      Alert.alert('Error', 'Name required!');
+      Alert.alert(t('error'), t('err_name_req'));
       return;
     }
     try {
@@ -171,6 +174,7 @@ export default function HomeScreen() {
         name: newBookName,
         created_at: formattedDate,
         userId: userUid,
+        sharedWith: [],
         updated_at: new Date().getTime()
       });
       
@@ -178,22 +182,25 @@ export default function HomeScreen() {
       setModalVisible(false);
       fetchDashboardData(); 
     } catch (error) {
-      console.error("Insert Error:", error);
-      Alert.alert('Error', 'Failed to add book!');
+      Alert.alert(t('error'), t('error'));
     }
   };
 
   const openBookActions = (book: any) => {
-    setSelectedBook({ id: book.id, name: book.name });
+    if(!book.isOwner) {
+      Alert.alert(t('notice'), "Only the owner can rename or delete this book.");
+      return;
+    }
+    setSelectedBook({ id: book.id, name: book.name, isOwner: book.isOwner });
     setActionModalVisible(true);
   };
 
   const handleDeletePress = () => {
     setActionModalVisible(false);
     if (!selectedBook) return;
-    Alert.alert("Delete", `Delete "${selectedBook.name}"?`, [
+    Alert.alert(t('delete'), t('del_book_msg'), [
       { text: t('cancel'), style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: async () => {
+      { text: t('delete'), style: "destructive", onPress: async () => {
           try {
             await deleteDoc(doc(db, 'books', selectedBook.id));
             const q = query(collection(db, 'transactions'), where("book_id", "==", selectedBook.id));
@@ -203,7 +210,7 @@ export default function HomeScreen() {
             });
             fetchDashboardData(); 
           } catch (error) {
-            console.error("Delete Error:", error);
+            Alert.alert(t('error'), t('err_del_book'));
           }
         }
       }
@@ -227,7 +234,7 @@ export default function HomeScreen() {
       setRenameModalVisible(false);
       fetchDashboardData();
     } catch (error) {
-      console.error("Rename Error:", error);
+      Alert.alert(t('error'), t('err_rename'));
     }
   };
 
@@ -250,12 +257,14 @@ export default function HomeScreen() {
             onLongPress={() => openBookActions(item)}
           >
             <View style={styles.bookLeft}>
-              <View style={[styles.iconContainer, { backgroundColor: brandPrimary }]}>
-                <FontAwesome name="book" size={20} color="#fff" />
+              <View style={[styles.iconContainer, { backgroundColor: item.isOwner ? brandPrimary : '#9C27B0' }]}>
+                <FontAwesome name={item.isOwner ? "book" : "users"} size={20} color="#fff" />
               </View>
               <View>
                 <Text style={[styles.bookName, { color: themeText }]}>{item.name}</Text>
-                <Text style={[styles.bookDate, { color: themeSubText }]}>Updated on {item.created_at}</Text>
+                <Text style={[styles.bookDate, { color: themeSubText }]}>
+                  {item.isOwner ? `Updated on ${item.created_at}` : 'Shared with you'}
+                </Text>
               </View>
             </View>
             
@@ -263,9 +272,11 @@ export default function HomeScreen() {
               <Text style={[styles.balance, { color: item.balance >= 0 ? colorIncome : colorExpense }]}>
                 {item.balance >= 0 ? '' : '-'}{Math.abs(item.balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </Text>
-              <TouchableOpacity onPress={() => openBookActions(item)} style={styles.dotsBtn}>
-                <FontAwesome name="ellipsis-v" size={22} color={themeSubText} />
-              </TouchableOpacity>
+              {item.isOwner && (
+                <TouchableOpacity onPress={() => openBookActions(item)} style={styles.dotsBtn}>
+                  <FontAwesome name="ellipsis-v" size={22} color={themeSubText} />
+                </TouchableOpacity>
+              )}
             </View>
           </TouchableOpacity>
         )}
@@ -365,10 +376,10 @@ export default function HomeScreen() {
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.cancelBtn}>
-                <Text style={[styles.cancelBtnText, { color: themeSubText }]}>{t('cancel')}</Text>
+                <Text style={[styles.cancelBtnText, { color: themeSubText }]} numberOfLines={1}>{t('cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleAddBook} style={[styles.saveBtn, { backgroundColor: brandPrimary }]}>
-                <Text style={styles.saveBtnText}>{t('save')}</Text>
+                <Text style={styles.saveBtnText} numberOfLines={1}>{t('save')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -378,7 +389,7 @@ export default function HomeScreen() {
       <Modal visible={renameModalVisible} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: themeCard, borderColor: themeBorder }]}>
-            <Text style={[styles.modalTitle, { color: themeText }]}>Rename Book</Text>
+            <Text style={[styles.modalTitle, { color: themeText }]}>{t('rename_book')}</Text>
             <TextInput 
               style={[styles.input, { color: themeText, borderColor: themeBorder, backgroundColor: themeContainer }]} 
               placeholder={t('book_name')} 
@@ -389,10 +400,10 @@ export default function HomeScreen() {
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity onPress={() => setRenameModalVisible(false)} style={styles.cancelBtn}>
-                <Text style={[styles.cancelBtnText, { color: themeSubText }]}>{t('cancel')}</Text>
+                <Text style={[styles.cancelBtnText, { color: themeSubText }]} numberOfLines={1}>{t('cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={submitRenameBook} style={[styles.saveBtn, { backgroundColor: brandPrimary }]}>
-                <Text style={styles.saveBtnText}>{t('update')}</Text>
+                <Text style={styles.saveBtnText} numberOfLines={1}>{t('update')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -403,17 +414,14 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setActionModalVisible(false)}>
           <View style={[styles.actionModal, { backgroundColor: themeCard, borderColor: themeBorder }]}>
             <Text style={[styles.actionTitle, { color: themeSubText }]}>{selectedBook?.name}</Text>
-            
             <TouchableOpacity style={styles.actionItem} onPress={handleRenamePress}>
               <FontAwesome name="pencil" size={20} color={themeText} style={styles.actionIcon} />
-              <Text style={[styles.actionText, { color: themeText }]}>Rename Book</Text>
+              <Text style={[styles.actionText, { color: themeText }]}>{t('rename_book')}</Text>
             </TouchableOpacity>
-            
             <View style={{ height: 1, backgroundColor: themeBorder }} />
-            
             <TouchableOpacity style={styles.actionItem} onPress={handleDeletePress}>
               <FontAwesome name="trash-o" size={20} color={colorExpense} style={styles.actionIcon} />
-              <Text style={[styles.actionText, { color: colorExpense }]}>Delete Book</Text>
+              <Text style={[styles.actionText, { color: colorExpense }]}>{t('delete')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -423,7 +431,6 @@ export default function HomeScreen() {
   );
 }
 
-// ... [styles object remains exactly same]
 const styles = StyleSheet.create({
   container: { flex: 1 },
   headerContainer: { padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 40, borderBottomWidth: 1 },
@@ -451,11 +458,14 @@ const styles = StyleSheet.create({
   modalContent: { width: '85%', borderRadius: 16, padding: 25, borderWidth: 1, elevation: 10 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20 },
   input: { borderWidth: 1, padding: 15, borderRadius: 10, marginBottom: 25, fontSize: 16 },
-  modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 15 },
-  cancelBtn: { paddingVertical: 12, paddingHorizontal: 15 },
-  cancelBtnText: { fontWeight: 'bold', fontSize: 16 },
-  saveBtn: { paddingVertical: 12, paddingHorizontal: 25, borderRadius: 10 },
-  saveBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  
+  // FIX FOR BUTTON ALIGNMENT
+  modalButtons: { flexDirection: 'row', width: '100%', gap: 10, marginTop: 5 },
+  cancelBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
+  cancelBtnText: { fontWeight: 'bold', fontSize: 14, textAlign: 'center' },
+  saveBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
+  saveBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 14, textAlign: 'center' },
+  
   actionModal: { width: '85%', borderRadius: 16, paddingVertical: 15, borderWidth: 1, elevation: 10 },
   actionTitle: { textAlign: 'center', fontSize: 14, fontStyle: 'italic', marginBottom: 10, paddingHorizontal: 15 },
   actionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 20 },

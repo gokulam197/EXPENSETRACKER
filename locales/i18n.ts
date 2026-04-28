@@ -2,84 +2,50 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// --- TRANSLATIONS ---
 const resources = {
   en: {
     translation: {
-      dashboard: "Dashboard",
-      your_books: "Your Books",
-      net_balance: "Net Balance",
-      this_month_exp: "This Month's Expense",
-      highest_exp: "Highest Expense",
-      six_month_trend: "6-Month Expense Trend",
-      no_books: "No books found. Click '+' to create one.",
-      create_book: "Create New Book",
-      book_name: "Book Name",
-      cancel: "Cancel",
-      save: "Save",
-      update: "Update",
-      gave: "- GAVE ₹",
-      got: "+ GOT ₹",
-      settings: "Settings & Info",
-      appearance: "Appearance",
-      language: "Language",
-      share_app: "Invite Friends",
-      send_feedback: "Send Feedback",
-      logout: "Logout",
+      error: "Error", success: "Success!", cancel: "Cancel", save: "Save", update: "Update", delete: "Delete", notice: "Notice",
+      login_title: "Expense Tracker", login_sub: "Sign in to sync your data", email_ph: "Email Address", pass_ph: "Password", forgot_pass: "Forgot Password?", login_btn: "Login", or: "OR", create_acc: "Create New Account", err_email_pass: "Email and Password are required!", err_pass_len: "Password must be at least 6 characters!", succ_acc: "New account created! You can now use the app.", err_email_in_use: "This email is already in use. Please login.", err_acc_create: "Failed to create account.", req_email_reset: "Please enter your email in the box to send a reset link!", succ_reset: "Password reset link sent to your email. Check your inbox.", err_reset: "Failed to send reset link. Check your email ID.", err_login: "Incorrect Email or Password.",
+      tab_home: "Home", tab_settings: "Settings",
+      dashboard: "Dashboard", your_books: "Your Books", no_books: "No books found. Click '+' to create one.", create_book: "Create New Book", book_name: "Book Name", this_month_exp: "This Month's Expense", highest_exp: "Highest Expense", six_month_trend: "6-Month Expense Trend", del_book_msg: "Delete this book? All transactions will be lost.", err_del_book: "Failed to delete book.", rename_book: "Rename Book", err_rename: "Failed to rename book!", err_name_req: "Book name is required!",
+      settings: "Settings & Info", app_desc: "Secure app with Cloud Sync. Your data is safely saved in real-time.", logged_in: "Logged in as:", version: "Version:", daily_rem: "Daily Reminder", rem_desc: "Get notified at 9 PM to log expenses", check_update: "Check for Updates", checking: "Checking...", app_theme: "Appearance", theme_desc: "Change your app theme manually.", switch_light: "Switch to Light Mode", switch_dark: "Switch to Dark Mode", invite: "Invite Friends", invite_desc: "If you find this app useful, share it with your friends!", send_feedback: "Send Feedback", fb_ph: "Type your suggestions, bugs...", sending: "Sending...", submit_fb: "Submit Feedback", logout: "Logout", logout_msg: "Are you sure you want to log out?", err_fb_req: "Please type some feedback!", succ_fb: "Your feedback has been sent successfully. 😊", err_fb: "Failed to send feedback.", share_msg: "Hey! Check out this Expense Tracker app. It helps me manage my daily expenses easily! 💸 \n\n[Download Link Here]", update_avail: "Update Available! 🚀", update_msg: "New version is available. Update now?", later: "Later", update_now: "Update Now", up_to_date: "Up to Date! ✅", up_to_date_msg: "You are using the latest version.", err_upd_info: "Could not fetch update info.", err_net: "Please check your internet connection.", err_perm: "Permission is required to enable notifications.", succ_rem: "Daily reminder scheduled for 9:00 PM! 🌙", err_rem: "Failed to schedule notification.", rem_off: "Daily reminders turned off.", notif_title: "Daily Expense Tracker 💸", notif_body: "Have you added today's expenses? Don't forget Casper's fuel or other expenses! 🚗", lang_title: "Select Language",
+      unauthorized: "Unauthorized", not_your_book: "This book doesn't belong to you!", del_tx_msg: "Delete this transaction?", err_invalid_amt: "Please enter a valid amount!", err_save_bud: "Failed to save budget!", no_data: "No Data", no_tx_exp: "No transactions to export!", err_pdf: "Failed to generate PDF!", net_balance: "Net Balance", monthly_bud: "Monthly Budget", spent: "Spent", set_bud_title: "Set Monthly Budget", set_bud_desc: "Set a limit to track your expenses for this month. Put 0 to remove the budget.", eg_amt: "e.g. 5000", set_bud_btn: "Set Budget", no_tx: "No transactions found.", cash_out: "- CASH OUT ₹", cash_in: "+ CASH IN ₹",
+      add_entry: "Add", edit_entry: "Edit", amt_label: "Amount (₹) *", scan_bill: "Scan Bill", scanning: "Scanning Bill...", category: "Category", remark: "Remark", remark_ph: "Enter details here...", save_tx: "SAVE TRANSACTION", update_tx: "UPDATE TRANSACTION", err_cam: "Camera permission is required.", succ_scan_msg: "Found amount from the bill! ✨", err_amt_req: "Amount is required!", err_not_log: "You are not logged in!", err_save_tx: "Failed to save transaction!",
+      // NEW ADDITIONS FOR COLLABORATION
+      share_book: "Share Book", share_book_desc: "Enter the email of the person you want to collaborate with.", invite_btn: "Invite User", succ_invite: "User added successfully!", err_invite: "Failed to add user.", added_by: "Added by:"
     }
   },
   ml: {
     translation: {
-      dashboard: "ഡാഷ്ബോർഡ്",
-      your_books: "നിങ്ങളുടെ ബുക്കുകൾ",
-      net_balance: "മൊത്തം ബാലൻസ്",
-      this_month_exp: "ഈ മാസത്തെ ചിലവ്",
-      highest_exp: "ഏറ്റവും വലിയ ചിലവ്",
-      six_month_trend: "6 മാസത്തെ ചിലവുകൾ",
-      no_books: "ബുക്കുകൾ ഒന്നുമില്ല. പുതിയത് ഉണ്ടാക്കാൻ '+' അമർത്തുക.",
-      create_book: "പുതിയ ബുക്ക് ഉണ്ടാക്കുക",
-      book_name: "ബുക്കിന്റെ പേര്",
-      cancel: "ക്യാൻസൽ",
-      save: "സേവ് ചെയ്യുക",
-      update: "അപ്ഡേറ്റ് ചെയ്യുക",
-      gave: "- കൊടുത്തു ₹",
-      got: "+ കിട്ടി ₹",
-      settings: "സെറ്റിങ്സ്",
-      appearance: "തീം മാറ്റുക",
-      language: "ഭാഷ (Language)",
-      share_app: "കൂട്ടുകാർക്ക് അയക്കുക",
-      send_feedback: "അഭിപ്രായങ്ങൾ അറിയിക്കുക",
-      logout: "ലോഗ് ഔട്ട്",
+      error: "തെറ്റ്", success: "വിജയം!", cancel: "ക്യാൻസൽ", save: "സേവ് ചെയ്യുക", update: "അപ്ഡേറ്റ് ചെയ്യുക", delete: "ഡിലീറ്റ്", notice: "ശ്രദ്ധിക്കുക",
+      login_title: "എക്സ്പെൻസ് ട്രാക്കർ", login_sub: "നിങ്ങളുടെ ഡാറ്റ സേവ് ചെയ്യാൻ ലോഗിൻ ചെയ്യുക", email_ph: "ഇമെയിൽ വിലാസം", pass_ph: "പാസ്‌വേഡ്", forgot_pass: "പാസ്‌വേഡ് മറന്നോ?", login_btn: "ലോഗിൻ ചെയ്യുക", or: "അല്ലെങ്കിൽ", create_acc: "പുതിയ അക്കൗണ്ട് ഉണ്ടാക്കുക", err_email_pass: "ഇമെയിലും പാസ്‌വേഡും നിർബന്ധമാണ്!", err_pass_len: "പാസ്‌വേഡിൽ കുറഞ്ഞത് 6 അക്ഷരങ്ങൾ വേണം!", succ_acc: "പുതിയ അക്കൗണ്ട് ഉണ്ടാക്കി! ഇനി ആപ്പ് ഉപയോഗിക്കാം.", err_email_in_use: "ഈ ഇമെയിൽ നിലവിലുണ്ട്. ദയവായി ലോഗിൻ ചെയ്യുക.", err_acc_create: "അക്കൗണ്ട് ഉണ്ടാക്കാൻ സാധിച്ചില്ല.", req_email_reset: "പാസ്‌വേഡ് മാറ്റാൻ ആദ്യം നിങ്ങളുടെ ഇമെയിൽ നൽകുക!", succ_reset: "പാസ്‌വേഡ് മാറ്റാനുള്ള ലിങ്ക് ഇമെയിലിലേക്ക് അയച്ചിട്ടുണ്ട്.", err_reset: "ലിങ്ക് അയക്കാൻ കഴിഞ്ഞില്ല. ഇമെയിൽ ശരിയാണോ എന്ന് നോക്കുക.", err_login: "ഇമെയിൽ അല്ലെങ്കിൽ പാസ്‌വേഡ് തെറ്റാണ്.",
+      tab_home: "ഹോം", tab_settings: "സെറ്റിങ്സ്",
+      dashboard: "ഡാഷ്ബോർഡ്", your_books: "നിങ്ങളുടെ ബുക്കുകൾ", no_books: "ബുക്കുകൾ ഒന്നുമില്ല. പുതിയത് ഉണ്ടാക്കാൻ '+' അമർത്തുക.", create_book: "പുതിയ ബുക്ക് ഉണ്ടാക്കുക", book_name: "ബുക്കിന്റെ പേര്", this_month_exp: "ഈ മാസത്തെ ചിലവ്", highest_exp: "ഏറ്റവും വലിയ ചിലവ്", six_month_trend: "6 മാസത്തെ ചിലവുകൾ", del_book_msg: "ഈ ബുക്ക് ഡിലീറ്റ് ചെയ്യണമെന്നുറപ്പാണോ? ഇതിലെ വിവരങ്ങൾ എല്ലാം നഷ്ടപ്പെടും.", err_del_book: "ഡിലീറ്റ് ചെയ്യാൻ സാധിച്ചില്ല.", rename_book: "പേര് മാറ്റുക", err_rename: "പേര് മാറ്റാൻ സാധിച്ചില്ല!", err_name_req: "പേര് നിർബന്ധമാണ്!",
+      settings: "സെറ്റിങ്സ്", app_desc: "ക്ലൗഡ് സിങ്ക് ഉള്ള സുരക്ഷിതമായ ആപ്പ്. ഡാറ്റ തത്സമയം സേവ് ചെയ്യപ്പെടുന്നു.", logged_in: "ലോഗിൻ ചെയ്തിരിക്കുന്നത്:", version: "വേർഷൻ:", daily_rem: "ദിവസേനയുള്ള ഓർമ്മപ്പെടുത്തൽ (Reminder)", rem_desc: "ചിലവുകൾ രേഖപ്പെടുത്താൻ രാത്രി 9 മണിക്ക് നോട്ടിഫിക്കേഷൻ ലഭിക്കും", check_update: "പുതിയ അപ്ഡേറ്റ് ഉണ്ടോ എന്ന് നോക്കുക", checking: "പരിശോധിക്കുന്നു...", app_theme: "തീം മാറ്റുക", theme_desc: "ആപ്പിന്റെ നിറം മാറ്റുക.", switch_light: "ലൈറ്റ് മോഡിലേക്ക് മാറ്റുക (Light)", switch_dark: "ഡാർക്ക് മോഡിലേക്ക് മാറ്റുക (Dark)", invite: "കൂട്ടുകാർക്ക് അയക്കുക", invite_desc: "ഈ ആപ്പ് നിങ്ങൾക്ക് ഉപകാരപ്രദമായി തോന്നിയെങ്കിൽ കൂട്ടുകാർക്കും ഷെയർ ചെയ്യുക!", send_feedback: "അഭിപ്രായങ്ങൾ അറിയിക്കുക", fb_ph: "നിങ്ങളുടെ അഭിപ്രായങ്ങൾ, ബഗുകൾ...", sending: "അയക്കുന്നു...", submit_fb: "അഭിപ്രായം അയക്കുക", logout: "ലോഗ് ഔട്ട്", logout_msg: "ആപ്പിൽ നിന്ന് പുറത്തു പോകണമെന്നുറപ്പാണോ?", err_fb_req: "എന്തെങ്കിലും ടൈപ്പ് ചെയ്യുക!", succ_fb: "നിങ്ങളുടെ ഫീഡ്ബാക്ക് ലഭിച്ചു. 😊", err_fb: "അയക്കാൻ സാധിച്ചില്ല.", share_msg: "ഈ എക്സ്പെൻസ് ട്രാക്കർ ആപ്പ് ഒന്ന് നോക്കൂ! ചിലവുകൾ എളുപ്പത്തിൽ ട്രാക്ക് ചെയ്യാൻ ഇത് സഹായിക്കും! 💸 \n\n[Download Link Here]", update_avail: "പുതിയ അപ്ഡേറ്റ് ഉണ്ട്! 🚀", update_msg: "പുതിയ വേർഷൻ ലഭ്യമാണ്. ഇപ്പോൾ അപ്ഡേറ്റ് ചെയ്യണമോ?", later: "പിന്നീട്", update_now: "ഇപ്പോൾ അപ്ഡേറ്റ് ചെയ്യുക", up_to_date: "അപ്ഡേറ്റ് ആണ്! ✅", up_to_date_msg: "നിങ്ങൾ ഏറ്റവും പുതിയ വേർഷൻ ആണ് ഉപയോഗിക്കുന്നത്.", err_upd_info: "അപ്ഡേറ്റ് വിവരങ്ങൾ എടുക്കാൻ കഴിഞ്ഞില്ല.", err_net: "ഇന്റർനെറ്റ് കണക്ഷൻ പരിശോധിക്കുക.", err_perm: "നോട്ടിഫിക്കേഷൻ ഓൺ ചെയ്യാൻ പെർമിഷൻ ആവശ്യമാണ്.", succ_rem: "രാത്രി 9 മണിക്ക് നോട്ടിഫിക്കേഷൻ വരുന്നതായിരിക്കും! 🌙", err_rem: "സെറ്റ് ചെയ്യാൻ സാധിച്ചില്ല.", rem_off: "നോട്ടിഫിക്കേഷൻ ഓഫ് ചെയ്തു.", notif_title: "ഡെയിലി എക്സ്പെൻസ് ട്രാക്കർ 💸", notif_body: "ഇന്നത്തെ ചിലവുകൾ ആഡ് ചെയ്തോ? കാസ്പറിന്റെ (Casper) പെട്രോളോ മറ്റ് കാര്യങ്ങളോ മറക്കാതെ ആഡ് ചെയ്യൂ! 🚗", lang_title: "ഭാഷ തിരഞ്ഞെടുക്കുക",
+      unauthorized: "അനുമതിയില്ല", not_your_book: "ഇത് നിങ്ങളുടെ ബുക്ക് അല്ല!", del_tx_msg: "ഇത് ഡിലീറ്റ് ചെയ്യണമെന്നുറപ്പാണോ?", err_invalid_amt: "ശരിയായ തുക നൽകുക!", err_save_bud: "ബഡ്ജറ്റ് സേവ് ചെയ്യാൻ കഴിഞ്ഞില്ല!", no_data: "ഡാറ്റ ഇല്ല", no_tx_exp: "എക്സ്പോർട്ട് ചെയ്യാൻ വിവരങ്ങൾ ഒന്നുമില്ല!", err_pdf: "PDF ഉണ്ടാക്കാൻ സാധിച്ചില്ല!", net_balance: "മൊത്തം ബാലൻസ്", monthly_bud: "മാസത്തെ ബഡ്ജറ്റ്", spent: "ചിലവായത്", set_bud_title: "മാസത്തെ ബഡ്ജറ്റ് സെറ്റ് ചെയ്യുക", set_bud_desc: "ഈ മാസത്തെ ചിലവുകൾ ട്രാക്ക് ചെയ്യാൻ ഒരു ലിമിറ്റ് വെക്കുക. ബഡ്ജറ്റ് ഒഴിവാക്കാൻ 0 കൊടുക്കുക.", eg_amt: "ഉദാ: 5000", set_bud_btn: "ബഡ്ജറ്റ് സേവ് ചെയ്യുക", no_tx: "വിവരങ്ങൾ ഒന്നും ലഭ്യമല്ല.", cash_out: "- ചിലവ് ₹", cash_in: "+ വരവ് ₹",
+      add_entry: "ആഡ് ചെയ്യുക", edit_entry: "എഡിറ്റ് ചെയ്യുക", amt_label: "തുക (₹) *", scan_bill: "ബിൽ സ്കാൻ ചെയ്യുക", scanning: "സ്കാൻ ചെയ്യുന്നു...", category: "വിഭാഗം", remark: "കുറിപ്പ്", remark_ph: "വിവരങ്ങൾ ഇവിടെ നൽകുക...", save_tx: "സേവ് ചെയ്യുക", update_tx: "അപ്ഡേറ്റ് ചെയ്യുക", err_cam: "ക്യാമറ ഉപയോഗിക്കാൻ അനുമതി വേണം.", succ_scan_msg: "ബില്ലിൽ നിന്നും തുക കണ്ടെത്തി! ✨", err_amt_req: "തുക നിർബന്ധമാണ്!", err_not_log: "നിങ്ങൾ ലോഗിൻ ചെയ്തിട്ടില്ല!", err_save_tx: "സേവ് ചെയ്യാൻ സാധിച്ചില്ല!",
+      // NEW ADDITIONS FOR COLLABORATION
+      share_book: "ബുക്ക് ഷെയർ ചെയ്യുക", share_book_desc: "നിങ്ങൾക്ക് ആർക്കാണോ ആക്സസ് നൽകേണ്ടത് അവരുടെ ഇമെയിൽ നൽകുക.", invite_btn: "ഇൻവൈറ്റ് ചെയ്യുക", succ_invite: "വിജയകരമായി ആഡ് ചെയ്തു!", err_invite: "ആഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല.", added_by: "ആഡ് ചെയ്തത്:"
     }
   },
   mg: {
     translation: {
-      dashboard: "Dashboard",
-      your_books: "Ningalude Bookukal",
-      net_balance: "Net Balance",
-      this_month_exp: "Ee Masathe Chilavu",
-      highest_exp: "Ettavum Valiya Chilavu",
-      six_month_trend: "6 Masathe Chilavukal",
-      no_books: "Bookukal onnumilla. Puthiyathu undakkan '+' amarthuka.",
-      create_book: "Puthiya Book Undakkuka",
-      book_name: "Bookinte Peru",
-      cancel: "Cancel",
-      save: "Save Cheyyuka",
-      update: "Update Cheyyuka",
-      gave: "- Koduthu ₹",
-      got: "+ Kitti ₹",
-      settings: "Settings",
-      appearance: "Theme Maattuka",
-      language: "Language",
-      share_app: "Koottukarkku Ayakkuka",
-      send_feedback: "Abhiprayangal Ariyikkuka",
-      logout: "Logout",
+      error: "Error", success: "Success!", cancel: "Cancel", save: "Save Cheyyuka", update: "Update Cheyyuka", delete: "Delete", notice: "Sradhikkuka",
+      login_title: "Expense Tracker", login_sub: "Ningalude data save cheyyan login cheyyuka", email_ph: "Email Address", pass_ph: "Password", forgot_pass: "Password Maranno?", login_btn: "Login Cheyyuka", or: "Allengil", create_acc: "Puthiya Account Undakkuka", err_email_pass: "Email-um Password-um nirbandhamanu!", err_pass_len: "Passwordil kuranjathu 6 aksharangal venam!", succ_acc: "Puthiya account undakki! Ini app upayogikkam.", err_email_in_use: "Ee email already use cheythittundu. Login cheyyuka.", err_acc_create: "Account create cheyyan pattiyilla.", req_email_reset: "Password reset link ayakkan aadyam Email type cheyyuka!", succ_reset: "Password reset link email-lekku ayachittundu.", err_reset: "Link ayakkan pattiyilla. Email id correct aano ennu nokkuka.", err_login: "Email allengil Password thettanu.",
+      tab_home: "Home", tab_settings: "Settings",
+      dashboard: "Dashboard", your_books: "Ningalude Bookukal", no_books: "Bookukal onnumilla. Puthiyathu undakkan '+' amarthuka.", create_book: "Puthiya Book Undakkuka", book_name: "Bookinte Peru", this_month_exp: "Ee Masathe Chilavu", highest_exp: "Ettavum Valiya Chilavu", six_month_trend: "6 Masathe Chilavukal", del_book_msg: "Delete cheyyanamennu urappano? Data muzhuvan nashtapedum.", err_del_book: "Delete cheyyan pattiyilla.", rename_book: "Peru Maattuka", err_rename: "Rename cheyyan pattiyilla!", err_name_req: "Book name kodukkuka!",
+      settings: "Settings & Info", app_desc: "Cloud Sync ulla secure app. Data real-time aayi safe aayi save aavunnundu.", logged_in: "Logged in as:", version: "Version:", daily_rem: "Daily Reminder", rem_desc: "Chilavukal add cheyyan rathri 9 manikku notification varum", check_update: "Puthiya Update Undo Ennu Nokkuka", checking: "Checking...", app_theme: "Appearance", theme_desc: "App-nte theme maattuka.", switch_light: "Light Mode-lekku maattuka", switch_dark: "Dark Mode-lekku maattuka", invite: "Koottukarkku Ayakkuka", invite_desc: "Ee app ningalkku upakarapradhamayittu thonniyengil share cheyyuka!", send_feedback: "Abhiprayangal Ariyikkuka", fb_ph: "Ningalude abhiprayangal, bugs...", sending: "Ayakkunnu...", submit_fb: "Feedback Ayakkuka", logout: "Logout", logout_msg: "App-il ninnu purathu pokano?", err_fb_req: "Feedback enthenkilum type cheyyuka!", succ_fb: "Ningalude feedback success aayi send cheythu. 😊", err_fb: "Feedback send cheyyan pattiyilla.", share_msg: "Hey! Check out this Expense Tracker app. It helps me manage my daily expenses easily! 💸 \n\n[Download Link Here]", update_avail: "Update Available! 🚀", update_msg: "Puthiya version vannittundu. Ippol thanne update cheyyano?", later: "Pinneedu", update_now: "Ippol Update Cheyyuka", up_to_date: "Up to Date! ✅", up_to_date_msg: "Ningal ippol use cheyyunnathu latest version thanneyaanu.", err_upd_info: "Update info edukkan pattiyilla.", err_net: "Internet connection check cheyyuka.", err_perm: "Notification enable cheyyan permission aavashyamanu.", succ_rem: "Rathri 9 manikku notification varunnathayirikkum! 🌙", err_rem: "Notification schedule cheyyan pattiyilla.", rem_off: "Daily reminders off cheythu.", notif_title: "Daily Expense Tracker 💸", notif_body: "Innathe chilavukal add cheytho? Casper-nte petrolo mattu karyangalo marakkathe add cheyyu! 🚗", lang_title: "Language Select Cheyyuka",
+      unauthorized: "Unauthorized", not_your_book: "Ithu ningalude book alla!", del_tx_msg: "Ithu delete cheyyanamennu urappano?", err_invalid_amt: "Sariyaya amount kodukkuka!", err_save_bud: "Budget save cheyyan pattiyilla!", no_data: "No Data", no_tx_exp: "Export cheyyan transactions onnumilla!", err_pdf: "PDF generate cheyyan pattiyilla!", net_balance: "Net Balance", monthly_bud: "Monthly Budget", spent: "Chilavayat", set_bud_title: "Monthly Budget Set Cheyyuka", set_bud_desc: "Ee masathe chilavukal track cheyyan oru limit vekkuka. Budget ozhivakkan 0 kodukkuka.", eg_amt: "eg. 5000", set_bud_btn: "Budget Save Cheyyuka", no_tx: "Transactions onnumilla.", cash_out: "- CHILAVU ₹", cash_in: "+ VARAVU ₹",
+      add_entry: "Add", edit_entry: "Edit", amt_label: "Amount (₹) *", scan_bill: "Bill Scan Cheyyuka", scanning: "Scan cheyyunnu...", category: "Category", remark: "Remark", remark_ph: "Vivarangal ivide nalkuka...", save_tx: "SAVE CHEYYUKA", update_tx: "UPDATE CHEYYUKA", err_cam: "Camera open cheyyan permission aavashyamanu.", succ_scan_msg: "Billil ninnum thuka kandethi! ✨", err_amt_req: "Amount kodukkuka!", err_not_log: "Login cheythittilla!", err_save_tx: "Save cheyyan pattiyilla!",
+      // NEW ADDITIONS FOR COLLABORATION
+      share_book: "Share Book", share_book_desc: "Ningalkku access nalkenda aalude email kodukkuka.", invite_btn: "Invite Cheyyuka", succ_invite: "User-ne add cheythu!", err_invite: "User-ne add cheyyan pattiyilla.", added_by: "Added by:"
     }
   }
 };
 
 const initI18n = async () => {
-  let savedLanguage = 'en';
+  let savedLanguage = 'mg'; 
   try {
     const lng = await AsyncStorage.getItem('appLanguage');
     if (lng) savedLanguage = lng;
